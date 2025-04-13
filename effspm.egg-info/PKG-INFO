@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: effspm
+Version: 0.1.0
+Summary: Prefix-Projection sequential pattern mining
+Author: You
+Requires-Dist: pybind11
+Dynamic: author
+Dynamic: requires-dist
+Dynamic: summary

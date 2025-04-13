@@ -1,0 +1,19 @@
+{
+    "configurations": [
+      {
+        "name": "Mac",
+        "includePath": [
+          "${workspaceFolder}/effspm",
+          "/Library/Frameworks/Python.framework/Versions/3.13/include/python3.13",
+          "/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages/pybind11/include"
+        ],
+        "defines": [],
+        "macFrameworkPath": ["/Library/Frameworks"],
+        "compilerPath": "/usr/bin/clang",
+        "cStandard": "c11",
+        "cppStandard": "c++17"
+      }
+    ],
+    "version": 4
+  }
+  

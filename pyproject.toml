@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel", "pybind11>=2.6"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "effspm"
+version = "0.1.0"
+description = "Prefix‑Projection sequential pattern mining"
+authors = [
+  { name="yeshu999", email="vootlayeswanth20@gmail.com" }
+]
+readme = "README.md"
+requires-python = ">=3.7"
+dependencies = ["pybind11>=2.6"]
+
+[project.urls]
+"Homepage" = "https://github.com/yeshu999/effspm"
+"Source"   = "https://github.com/yeshu999/effspm"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["effspm*"]
