@@ -16,10 +16,9 @@ jobs:
       CIBW_BUILD_VERBOSITY: 1
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      - name: Set up Python
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
@@ -30,27 +29,33 @@ jobs:
       - name: Build wheels
         run: python -m cibuildwheel --output-dir wheelhouse
 
-      - name: Prepare dist
+      - name: List wheels
+        run: ls wheelhouse
+
+      # Copy wheels into dist/ so publish step can find them
+      - name: Prepare artifacts for publishing
         run: |
           mkdir -p dist
           cp wheelhouse/*.whl dist/
-
-      - name: Upload wheels
-        uses: actions/upload-artifact@v3
-        with:
-          name: wheels
-          path: dist/*.whl
 
   publish:
     needs: build_wheels
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
-      - name: Download wheels
+      - uses: actions/checkout@v3
+
+      # Ensure the built wheels are available
+      - name: Download build artifacts
         uses: actions/download-artifact@v3
         with:
-          name: wheels
-          path: dist/
+          name: wheelhouse
+          path: wheelhouse
+
+      - name: Copy wheels to dist/
+        run: |
+          mkdir -p dist
+          cp wheelhouse/*.whl dist/
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@v1.5.0
