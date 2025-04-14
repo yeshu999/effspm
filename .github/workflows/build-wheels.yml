@@ -11,8 +11,9 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.8", "3.9", "3.10", "3.11"]
-
-
+    env:
+      # Skip PyPy builds
+      CIBW_SKIP: "pp*"
 
     steps:
       - uses: actions/checkout@v3
@@ -25,8 +26,8 @@ jobs:
       - name: Install cibuildwheel
         run: pip install cibuildwheel==2.15.0
 
-      - name: Build wheels
-        run: python -m cibuildwheel --output-dir wheelhouse
+      - name: Build wheels (verbose on error)
+        run: python -m cibuildwheel --output-dir wheelhouse --print-build-output-on-error
 
       - name: List wheels
         run: ls wheelhouse
