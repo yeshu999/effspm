@@ -14,6 +14,8 @@ jobs:
     env:
       # Skip PyPy builds
       CIBW_SKIP: "pp*"
+      # Increase build output verbosity
+      CIBW_BUILD_VERBOSITY: 1
 
     steps:
       - uses: actions/checkout@v3
@@ -26,9 +28,8 @@ jobs:
       - name: Install cibuildwheel
         run: pip install cibuildwheel==2.15.0
 
-      - name: Build wheels (verbose)
-        run: python -m cibuildwheel --output-dir wheelhouse --verbose
-
+      - name: Build wheels
+        run: python -m cibuildwheel --output-dir wheelhouse
 
       - name: List wheels
         run: ls wheelhouse
