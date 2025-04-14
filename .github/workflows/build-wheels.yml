@@ -32,12 +32,12 @@ jobs:
       - name: List wheels
         run: ls wheelhouse
 
-      - name: Prepare artifacts for publishing
+      - name: Prepare dist directory
         run: |
           mkdir -p dist
           cp wheelhouse/*.whl dist/
 
-      - name: Upload wheels
+      - name: Upload wheels artifact
         uses: actions/upload-artifact@v3
         with:
           name: wheels
@@ -50,13 +50,13 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Download wheels
+      - name: Download wheels artifact
         uses: actions/download-artifact@v3
         with:
           name: wheels
           path: dist
 
-      - name: List dist/
+      - name: List dist directory
         run: ls dist
 
       - name: Publish to PyPI
