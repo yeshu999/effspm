@@ -32,11 +32,16 @@ jobs:
       - name: List wheels
         run: ls wheelhouse
 
-      # Copy wheels into dist/ so publish step can find them
       - name: Prepare artifacts for publishing
         run: |
           mkdir -p dist
           cp wheelhouse/*.whl dist/
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: dist/*.whl
 
   publish:
     needs: build_wheels
@@ -45,17 +50,14 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      # Ensure the built wheels are available
-      - name: Download build artifacts
+      - name: Download wheels
         uses: actions/download-artifact@v3
         with:
-          name: wheelhouse
-          path: wheelhouse
+          name: wheels
+          path: dist
 
-      - name: Copy wheels to dist/
-        run: |
-          mkdir -p dist
-          cp wheelhouse/*.whl dist/
+      - name: List dist/
+        run: ls dist
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@v1.5.0
