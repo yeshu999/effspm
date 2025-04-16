@@ -1,42 +1,63 @@
-name: Build and Publish Wheels
+name: Build & Publish Wheels
 
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - 'v*'              # triggers on tags like v0.1.3
+  workflow_dispatch:     # manual trigger in Actions UI
 
 jobs:
-  build_and_publish:
-    runs-on: ubuntu-latest
+  build:
     strategy:
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11"]
-    env:
-      CIBW_SKIP: "pp*"
-      CIBW_BUILD_VERBOSITY: 1
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ['3.7', '3.8', '3.9', '3.10', '3.11', '3.12']
+    runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Setup Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Install build tools
-        run: |
-          pip install --upgrade pip
-          pip install cibuildwheel==2.15.0
+        run: python -m pip install --upgrade pip setuptools wheel cibuildwheel
 
       - name: Build wheels
-        run: python -m cibuildwheel --output-dir dist
+        # On Windows & Linux you don’t need to set CIBW_PLATFORM,
+        # cibuildwheel will auto-detect. On macOS you can optionally set CIBW_ARCHS.
+        env:
+          CIBW_PLATFORM: ${{ matrix.os == 'macos-latest' && 'macos' || matrix.os == 'ubuntu-latest' && 'linux' || matrix.os == 'windows-latest' && 'windows' }}
+          # For macOS only: build both arm64 & universal2
+          CIBW_ARCHS: ${{ matrix.os == 'macos-latest' && 'arm64 universal2' || '' }}
+        run: python -m cibuildwheel --output-dir wheelhouse
 
-      - name: List built wheels
-        run: ls dist
+      - name: Upload wheels as build artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: wheelhouse/*.whl
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Download all wheels
+        uses: actions/download-artifact@v3
+        with:
+          name: wheels
+          path: dist
 
       - name: Publish to PyPI
-        if: startsWith(github.ref, 'refs/tags/v')
         uses: pypa/gh-action-pypi-publish@v1.5.0
         with:
           user: __token__
-          password: ${{ secrets.PYPI_API_TOKEN1 }}
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          packages_dir: dist
