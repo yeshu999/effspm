@@ -1,20 +1,23 @@
-# setup.py
+import os
 import setuptools
 from setuptools import Extension
 import pybind11
+
+# Get the absolute path to the directory containing setup.py
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 ext_modules = [
     Extension(
         "effspm._core",
         sources=[
-            "effspm/_core.cpp",
-            "effspm/load_inst.cpp",
-            "effspm/freq_miner.cpp",
-            "effspm/utility.cpp",
+            os.path.join("effspm", "_core.cpp"),
+            os.path.join("effspm", "load_inst.cpp"),
+            os.path.join("effspm", "freq_miner.cpp"),
+            os.path.join("effspm", "utility.cpp"),
         ],
         include_dirs=[
             pybind11.get_include(),
-            "effspm",
+            os.path.join(BASE_DIR, "effspm"),  # Absolute path to the "effspm" folder
         ],
         language="c++",
         extra_compile_args=["-O3", "-std=c++17"],
