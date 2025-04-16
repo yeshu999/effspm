@@ -3,54 +3,46 @@ name: Build & Publish Wheels
 on:
   push:
     tags:
-      - 'v*'              # triggers on tags like v0.1.3
-  workflow_dispatch:     # manual trigger in Actions UI
+      - 'v*'
+  workflow_dispatch:
 
 jobs:
   build:
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: ['3.7', '3.8', '3.9', '3.10', '3.11', '3.12']
-    runs-on: ${{ matrix.os }}
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-      - name: Setup Python ${{ matrix.python-version }}
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install build tools
-        run: python -m pip install --upgrade pip setuptools wheel cibuildwheel
+      - name: Install cibuildwheel
+        run: |
+          python -m pip install --upgrade pip setuptools wheel cibuildwheel
 
       - name: Build wheels
-        # On Windows & Linux you don’t need to set CIBW_PLATFORM,
-        # cibuildwheel will auto-detect. On macOS you can optionally set CIBW_ARCHS.
-        env:
-          CIBW_PLATFORM: ${{ matrix.os == 'macos-latest' && 'macos' || matrix.os == 'ubuntu-latest' && 'linux' || matrix.os == 'windows-latest' && 'windows' }}
-          # For macOS only: build both arm64 & universal2
-          CIBW_ARCHS: ${{ matrix.os == 'macos-latest' && 'arm64 universal2' || '' }}
-        run: python -m cibuildwheel --output-dir wheelhouse
+        run: python -m cibuildwheel --output-dir dist
 
-      - name: Upload wheels as build artifact
-        uses: actions/upload-artifact@v3
+      - name: Upload wheels
+        uses: actions/upload-artifact@v2
         with:
           name: wheels
-          path: wheelhouse/*.whl
+          path: dist/*.whl
 
   publish:
     needs: build
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-      - name: Download all wheels
-        uses: actions/download-artifact@v3
+      - name: Download wheels
+        uses: actions/download-artifact@v2
         with:
           name: wheels
           path: dist
