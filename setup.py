@@ -26,7 +26,7 @@ ext_modules = [
 
 setuptools.setup(
     name="effspm",
-    version="0.1.4",  # keep in sync with pyproject.toml
+    version="0.1.5",  # keep in sync with pyproject.toml
     author="yeshu999",
     author_email="vootlayeswanth20@gmail.com",
     description="Prefix‑Projection sequential pattern mining",
