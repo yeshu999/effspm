@@ -2,7 +2,8 @@ name: Build & Publish Wheels
 
 on:
   push:
-    tags: ['v*']
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 jobs:
@@ -14,15 +15,17 @@ jobs:
         python-vers: ['3.9','3.10','3.11','3.12','3.13']
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Setup Python
+      - name: Setup Python ${{ matrix.python-vers }}
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-vers }}
 
       - name: Install build tools
-        run: python -m pip install --upgrade pip setuptools wheel cibuildwheel
+        run: |
+          python -m pip install --upgrade pip setuptools wheel cibuildwheel
 
       - name: Build wheels
         env:
@@ -30,7 +33,7 @@ jobs:
         run: python -m cibuildwheel --output-dir dist
 
       - name: Upload wheels artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3     # ← make sure this is here
         with:
           name: wheels-${{ matrix.os }}-py${{ matrix.python-vers }}
           path: dist/*.whl
@@ -40,14 +43,15 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Download all wheel artifacts
-        uses: actions/download-artifact@v3
+      - name: Download all wheels
+        uses: actions/download-artifact@v3  # ← and this
         with:
           path: dist
 
-      - name: Publish all wheels to PyPI
+      - name: Publish wheels to PyPI
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN3 }}
