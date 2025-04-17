@@ -1,10 +1,8 @@
-# .github/workflows/build-and-publish.yml
 name: Build & Publish Wheels
 
 on:
   push:
-    tags:
-      - 'v*'               # e.g. v0.1.5
+    tags: ['v*']
   workflow_dispatch:
 
 jobs:
@@ -16,27 +14,22 @@ jobs:
         python-vers: ['3.13']
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      - name: Setup Python ${{ matrix.python-vers }}
-        uses: actions/setup-python@v4
+      - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-vers }}
 
-      - name: Install build tools
-        run: python -m pip install --upgrade pip setuptools wheel cibuildwheel
+      - run: python -m pip install --upgrade pip setuptools wheel cibuildwheel
 
       - name: Build wheel
         env:
-          CIBW_SKIP: 'pp*'      # skip PyPy
+          CIBW_SKIP: 'pp*'
         run: python -m cibuildwheel --output-dir dist
 
       - name: Upload wheel artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v2    # <-- switch to @v2
         with:
-          # no `name:` means “artifact is auto‑named”,
-          # but you can give it one if you like.
           path: dist/*.whl
 
   publish:
@@ -44,11 +37,10 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      - name: Download all built wheels
-        uses: actions/download-artifact@v3
+      - name: Download built wheels
+        uses: actions/download-artifact@v2  # <-- switch to @v2
         with:
           path: dist
 
