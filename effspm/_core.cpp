@@ -1,6 +1,7 @@
-#include <ctime>                   // for std::clock
-#include <cmath>                   // for std::ceil, std::abs
-#include <iostream>                // optional echo
+#include <ctime>       // std::clock
+#include <cmath>       // std::ceil, std::abs
+#include <algorithm>   // std::max
+#include <iostream>    // optional echo
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
@@ -22,28 +23,27 @@ PYBIND11_MODULE(_core, m) {
            bool verbose_arg,
            const std::string &out_file_arg)
         {
-            // 1) set C++ globals from Python args
+            // 1) configure C++ globals
             time_limit = time_limit_arg;
             pre_pro    = preproc_arg;
             use_dic    = use_dic_arg;
-            use_list   = false;              // list-opt off by default
+            use_list   = false;
             b_disp     = verbose_arg;
             b_write    = !out_file_arg.empty();
             out_file   = out_file_arg;
 
-            // 2) reset collector & timer
+            // 2) clear collector & start timer
             ClearCollected();
             start_time = std::clock();
 
-            // 3) load data
+            // 3) load either file or in‐memory sequences
             if (py::isinstance<py::str>(data)) {
-                // file-path overload
                 auto path = data.cast<std::string>();
                 if (!Load_instance(path, minsup))
                     throw std::runtime_error("Failed to load database from " + path);
             }
             else {
-                // in-memory overload: Python List[List[int]] → C++ items
+                // convert Python List[List[int]] → C++ items
                 auto seqs = data.cast<std::vector<std::vector<int>>>();
                 items     = std::move(seqs);
                 N         = items.size();
@@ -55,19 +55,19 @@ PYBIND11_MODULE(_core, m) {
                         max_id = std::max(max_id, std::abs(x));
                 L = static_cast<unsigned int>(max_id);
 
-                // b) compute absolute support threshold θ
+                // b) support threshold θ
                 if (minsup < 1.0)
                     theta = static_cast<unsigned long long>(std::ceil(minsup * N));
                 else
                     theta = static_cast<unsigned long long>(minsup);
 
-                // c) init DFS
+                // c) initialize DFS stack
                 DFS.clear();
                 DFS.reserve(L);
                 for (unsigned int i = 0; i < L; ++i)
                     DFS.emplace_back(-static_cast<int>(i) - 1);
 
-                // d) gather dataset stats: max length M & total entries E
+                // d) gather dataset stats: max length M, total entries E
                 M = 0;
                 E = 0;
                 for (auto &seq : items) {
@@ -75,23 +75,21 @@ PYBIND11_MODULE(_core, m) {
                     E += seq.size();
                 }
 
-                // optional console echo
                 if (b_disp) {
-                    std::cout
-                        << "\nIn-memory dataset: "
-                        << N << " sequences, max len " << M
-                        << ", " << E << " entries, " << L << " items\n";
+                    std::cout << "\nIn-memory dataset: "
+                              << N << " sequences, max len " << M
+                              << ", " << E << " entries, " << L << " items\n";
                 }
             }
 
             // 4) run the C++ miner
             Freq_miner();
 
-            // 5) collect results & timing
+            // 5) collect patterns & timing
             auto patterns   = GetCollected();
             double wall_time = give_time(std::clock() - start_time);
 
-            // 6) return a Python dict
+            // 6) return Python dict
             py::dict out;
             out["patterns"] = patterns;
             out["time"]     = wall_time;
