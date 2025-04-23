@@ -1,4 +1,3 @@
-from ._core import mine
+from ._core import PrefixProjection
 
-
-__all__ = ['mine']
+__all__ = ['PrefixProjection']

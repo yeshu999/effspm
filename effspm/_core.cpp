@@ -1,3 +1,6 @@
+#include <ctime>                   // for std::clock
+#include <cmath>                   // for std::ceil, std::abs
+#include <iostream>                // optional echo
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
@@ -5,24 +8,101 @@
 #include "freq_miner.hpp"
 #include "utility.hpp"
 
-
 namespace py = pybind11;
 
 PYBIND11_MODULE(_core, m) {
     m.doc() = "Efficient Sequential Pattern Mining via Prefix-Projection";
 
-    m.def("mine", [](std::string data_file, double minsup) {
-        ClearCollected();
+    m.def("PrefixProjection",
+        [](py::object data,
+           double minsup,
+           unsigned int time_limit_arg,
+           bool preproc_arg,
+           bool use_dic_arg,
+           bool verbose_arg,
+           const std::string &out_file_arg)
+        {
+            // 1) set C++ globals from Python args
+            time_limit = time_limit_arg;
+            pre_pro    = preproc_arg;
+            use_dic    = use_dic_arg;
+            use_list   = false;              // list-opt off by default
+            b_disp     = verbose_arg;
+            b_write    = !out_file_arg.empty();
+            out_file   = out_file_arg;
 
-        // Note: Pass by value (safe copy)
-        if (!Load_instance(data_file, minsup)) {
-            throw std::runtime_error("Failed to load database from " + data_file);
-        }
+            // 2) reset collector & timer
+            ClearCollected();
+            start_time = std::clock();
 
-        Freq_miner();
-        return GetCollected();
-    },
-    py::arg("data_file"),
-    py::arg("minsup") = 0.01,
-    "Mine sequential patterns from the given data file with minimum support.");
+            // 3) load data
+            if (py::isinstance<py::str>(data)) {
+                // file-path overload
+                auto path = data.cast<std::string>();
+                if (!Load_instance(path, minsup))
+                    throw std::runtime_error("Failed to load database from " + path);
+            }
+            else {
+                // in-memory overload: Python List[List[int]] → C++ items
+                auto seqs = data.cast<std::vector<std::vector<int>>>();
+                items     = std::move(seqs);
+                N         = items.size();
+
+                // a) compute max item ID → L
+                int max_id = 0;
+                for (auto &seq : items)
+                    for (int x : seq)
+                        max_id = std::max(max_id, std::abs(x));
+                L = static_cast<unsigned int>(max_id);
+
+                // b) compute absolute support threshold θ
+                if (minsup < 1.0)
+                    theta = static_cast<unsigned long long>(std::ceil(minsup * N));
+                else
+                    theta = static_cast<unsigned long long>(minsup);
+
+                // c) init DFS
+                DFS.clear();
+                DFS.reserve(L);
+                for (unsigned int i = 0; i < L; ++i)
+                    DFS.emplace_back(-static_cast<int>(i) - 1);
+
+                // d) gather dataset stats: max length M & total entries E
+                M = 0;
+                E = 0;
+                for (auto &seq : items) {
+                    M = std::max<unsigned int>(M, static_cast<unsigned int>(seq.size()));
+                    E += seq.size();
+                }
+
+                // optional console echo
+                if (b_disp) {
+                    std::cout
+                        << "\nIn-memory dataset: "
+                        << N << " sequences, max len " << M
+                        << ", " << E << " entries, " << L << " items\n";
+                }
+            }
+
+            // 4) run the C++ miner
+            Freq_miner();
+
+            // 5) collect results & timing
+            auto patterns   = GetCollected();
+            double wall_time = give_time(std::clock() - start_time);
+
+            // 6) return a Python dict
+            py::dict out;
+            out["patterns"] = patterns;
+            out["time"]     = wall_time;
+            return out;
+        },
+        py::arg("data"),
+        py::arg("minsup")      = 0.01,
+        py::arg("time_limit")  = 10 * 3600,
+        py::arg("preproc")     = false,
+        py::arg("use_dic")     = false,
+        py::arg("verbose")     = false,
+        py::arg("out_file")    = ""
+    );
 }
