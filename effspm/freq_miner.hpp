@@ -1,7 +1,9 @@
 #pragma once
-
+#include <vector>
 #include "load_inst.hpp"
-
+#include <cstdlib> 
+#include <cmath> 
+using namespace std;
 void Freq_miner();
 void Out_patt(std::vector<int>& seq, unsigned int freq);
 
