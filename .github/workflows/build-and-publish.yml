@@ -1,3 +1,5 @@
+# .github/workflows/build-and-publish.yml
+
 name: Build & Publish Wheels
 
 on:
@@ -7,11 +9,11 @@ on:
 
 jobs:
   build-and-publish:
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [macos-latest, windows-latest]
-        python-version: ['3.13']
-    runs-on: ${{ matrix.os }}
+        python-version: ['3.11', '3.12', '3.13']
 
     steps:
       - name: Checkout
@@ -28,7 +30,7 @@ jobs:
 
       - name: Build wheel
         env:
-          CIBW_SKIP: 'pp*'
+          CIBW_SKIP: 'pp*'      # skip PyPy builds
         run: python -m cibuildwheel --output-dir dist
 
       - name: Publish to PyPI
