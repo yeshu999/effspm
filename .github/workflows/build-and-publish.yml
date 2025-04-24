@@ -30,13 +30,19 @@ jobs:
 
       - name: Build wheel
         env:
-          CIBW_SKIP:  'pp*'      # skip PyPy builds
-          CIBW_BUILD: 'cp313*'   # only build CPython 3.13
-        run: python -m cibuildwheel --output-dir dist
+          CIBW_SKIP:            'pp*'               # skip all PyPy builds
+          CIBW_BUILD:           'cp313*'            # only build CPython-3.13
+          CIBW_BUILD_VERBOSITY: 'debug'             # show full compiler & pip logs
+          CIBW_ARCHS:           'arm64 universal2'  # build ARM-only + Universal2
+        run: |
+          python -m cibuildwheel \
+            --build-verbosity=debug \
+            --output-dir dist
 
       - name: Publish to PyPI
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN4 }}
-        run: twine upload dist/*.whl --skip-existing
+        run: |
+          twine upload dist/*.whl --skip-existing
