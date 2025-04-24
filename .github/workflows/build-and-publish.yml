@@ -1,17 +1,20 @@
+# .github/workflows/build-and-publish.yml
 name: Build & Publish Wheels
 
 on:
   push:
-    tags: ['v*']       # only on version tags
+    tags:
+      - 'v*'           # only run on version tags like v0.1.6
   workflow_dispatch:
 
 jobs:
   build-and-publish:
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [macos-latest, windows-latest]
         python-version: ['3.13']
-    runs-on: ${{ matrix.os }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -27,7 +30,8 @@ jobs:
 
       - name: Build wheel
         env:
-          CIBW_BUILD: 'cp313*'        # <— only build 3.13
+          CIBW_SKIP:  'pp*'      # skip PyPy builds
+          CIBW_BUILD: 'cp313*'   # only build CPython 3.13
         run: python -m cibuildwheel --output-dir dist
 
       - name: Publish to PyPI
