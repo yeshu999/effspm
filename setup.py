@@ -1,47 +1,70 @@
-import os
-import setuptools
-from setuptools import Extension
+from setuptools import setup, Extension
 import pybind11
-
-# Get the absolute path to the directory containing setup.py
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 ext_modules = [
     Extension(
-        "effspm._core",
+        name="effspm._effspm",
         sources=[
-            os.path.join("effspm", "_core.cpp"),
-            os.path.join("effspm", "load_inst.cpp"),
-            os.path.join("effspm", "freq_miner.cpp"),
-            os.path.join("effspm", "utility.cpp"),
+            # Python‐binding entrypoint
+            "effspm/_effspm.cpp",
+            
+            "effspm/freq_miner.cpp",
+            "effspm/load_inst.cpp",
+            "effspm/utility.cpp",
+                     # Collector for HTMiner in‐memory patterns
+            
+
+            # HTMiner core sources
+            
+            "effspm/htminer/src/freq_miner.cpp",
+            "effspm/htminer/src/load_inst.cpp",
+            "effspm/htminer/src/utility.cpp",
+            "effspm/htminer/src/build_mdd.cpp",
+            
+            # BTMiner sources
+            "effspm/btminer/src/freq_miner.cpp",
+            "effspm/btminer/src/load_inst.cpp",
+            "effspm/btminer/src/utility.cpp",
+            "effspm/btminer/src/build_mdd.cpp",
+
+            "effspm/largepp/src/freq_miner.cpp",
+            "effspm/largepp/src/load_inst.cpp",
+            "effspm/largepp/src/utility.cpp",
+
+            "effspm/largebm/src/freq_miner.cpp",
+            "effspm/largebm/src/load_inst.cpp",
+            "effspm/largebm/src/utility.cpp",
+            "effspm/largebm/src/build_mdd.cpp",
+
+            "effspm/largehm/src/freq_miner.cpp",
+            "effspm/largehm/src/load_inst.cpp",
+            "effspm/largehm/src/utility.cpp",
+            "effspm/largehm/src/build_mdd.cpp",
+            
         ],
         include_dirs=[
             pybind11.get_include(),
-            os.path.join(BASE_DIR, "effspm"),  # Absolute path to the "effspm" folder
+            "effspm",            # for _effspm.cpp
+             
+            "effspm/htminer/src",       # for HTMiner headers
+            "effspm/btminer/src", # for BTMiner headers
+            "effspm/largepp/src",
+            "effspm/largebm/src",
+            "effspm/largehm/src"
         ],
         language="c++",
-        extra_compile_args=["-O3", "-std=c++17"],
-    ),
+        extra_compile_args=["-std=c++11", "-O3"],
+        
+    )
 ]
 
-setuptools.setup(
+setup(
     name="effspm",
-    version="0.1.7",  # keep in sync with pyproject.toml
-    author="yeshu999",
-    author_email="vootlayeswanth20@gmail.com",
-    description="Prefix‑Projection sequential pattern mining",
-    long_description=open("README.md", encoding="utf-8").read(),
-    long_description_content_type="text/markdown",
-    url="https://github.com/yeshu999/effspm",
-    packages=setuptools.find_packages(where="."),
+    version="0.2.4",
+    description="Efficient Sequential Pattern Mining Library",
+    author="Yeswanth Vootla",
+    packages=["effspm"],
     ext_modules=ext_modules,
     zip_safe=False,
-    python_requires=">=3.7",
-    install_requires=["pybind11>=2.6"],
-    classifiers=[
-        "Programming Language :: Python :: 3",
-        "Programming Language :: C++",
-        "License :: OSI Approved :: MIT License",
-        "Operating System :: OS Independent",
-    ],
+    install_requires=["pybind11"],
 )

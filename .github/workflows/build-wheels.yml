@@ -1,13 +1,16 @@
-name: Build Wheels
+name: Build & Publish Wheels
 
 on:
   push:
     branches: [ main ]
+    tags:
+      - 'v*'          # publish when tagging a release like v0.2.4
   pull_request:
     branches: [ main ]
 
 jobs:
   build_wheels:
+    name: Build (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
@@ -42,3 +45,41 @@ jobs:
         with:
           name: wheels-${{ matrix.os }}
           path: wheelhouse/*.whl
+
+  build_sdist:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build sdist
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --sdist --outdir dist
+      - name: Upload sdist
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+
+  publish:
+    # only run on version tags
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build_wheels, build_sdist]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist_all
+
+      - name: Flatten artifacts to dist/
+        shell: bash
+        run: |
+          mkdir -p dist
+          find dist_all -type f -name "*.whl" -exec mv {} dist/ \;
+          find dist_all -type f -name "*.tar.gz" -exec mv {} dist/ \;
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@v1.10.3
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN7 }}
+          packages-dir: dist
