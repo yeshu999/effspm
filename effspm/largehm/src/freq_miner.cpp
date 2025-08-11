@@ -10,7 +10,7 @@
 #include "freq_miner.hpp"
 #include "build_mdd.hpp"
 #include "utility.hpp"
-
+std::vector<std::uint64_t> ancest_base;
 namespace largehm {
 
 void Out_patt(std::vector<int>& seq, unsigned int freq);
@@ -31,7 +31,7 @@ std::vector<bool> slist;
 std::vector<Pattern> pot_patt;
 std::vector<VPattern> pot_vpatt;
 std::vector<unsigned long long int> last_strpnt;
-std::vector<std::uint64_t> ancest_base;
+
 std::vector<int> DFS_numfound;
 
 Pattern _patt;
