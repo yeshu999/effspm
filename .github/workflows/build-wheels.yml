@@ -1,8 +1,10 @@
-name: Build Wheels
+name: Build & Publish Wheels
 
 on:
   push:
     branches: [ main ]
+    tags:
+      - 'v*'      # publish on version tags like v0.1.27
   pull_request:
     branches: [ main ]
 
@@ -13,7 +15,6 @@ jobs:
       matrix:
         os: [ubuntu-22.04, windows-2022, macos-14]
     runs-on: ${{ matrix.os }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -28,15 +29,23 @@ jobs:
           python -m pip install --upgrade pip
           pip install cibuildwheel==2.20.0
 
+      # 🔧 macOS-only: do a noisy local wheel build to expose compiler errors (non-fatal)
+      - name: macOS smoke build (verbose; non-fatal)
+        if: matrix.os == 'macos-14'
+        run: |
+          python -m pip install -U pip setuptools wheel pybind11
+          # Build a wheel for the host python with full logs; don't fail the job here
+          python -m pip wheel -v . -w /tmp/smokewheel || true
+
       - name: Build wheels
         env:
-          # Build all CPython versions; skip PyPy & musllinux by default
-          CIBW_BUILD: "cp38-* cp39-* cp310-* cp311-* cp312-* cp313-*"
+          CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-*"
           CIBW_SKIP: "pp* *-musllinux_*"
           CIBW_ARCHS_LINUX: "x86_64 i686"
           CIBW_ARCHS_MACOS: "x86_64 arm64"
-          # Simple import test per wheel
           CIBW_TEST_COMMAND: "python -c \"import effspm; print('import ok')\""
+          CIBW_BUILD_VERBOSITY: "3"                         # 🔧 show full build logs
+          CIBW_ENVIRONMENT_MACOS: "CC=clang CXX=clang++ MACOSX_DEPLOYMENT_TARGET=11.0"
         run: python -m cibuildwheel --output-dir wheelhouse
 
       - name: Upload wheels as artifact
@@ -44,3 +53,25 @@ jobs:
         with:
           name: wheels-${{ matrix.os }}
           path: wheelhouse/*.whl
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build_wheels]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist_all
+
+      - name: Flatten to dist/
+        shell: bash
+        run: |
+          mkdir -p dist
+          find dist_all -type f -name "*.whl" -exec mv {} dist/ \;
+
+      - name: Publish to PyPI (wheels only)
+        uses: pypa/gh-action-pypi-publish@v1.10.3
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN7 }}
+          packages-dir: dist
