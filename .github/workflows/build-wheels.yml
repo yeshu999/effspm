@@ -9,27 +9,36 @@ on:
 jobs:
   build_wheels:
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-22.04, windows-2022, macos-14]
     runs-on: ${{ matrix.os }}
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v2
+      - name: Set up Python (host)
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: '3.12'
 
-      - name: Install dependencies and cibuildwheel
-        run: python -m pip install --upgrade pip cibuildwheel
+      - name: Install cibuildwheel
+        run: |
+          python -m pip install --upgrade pip
+          pip install cibuildwheel==2.20.0
 
       - name: Build wheels
+        env:
+          CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-*"
+          CIBW_SKIP: "pp* *-musllinux_*"
+          CIBW_ARCHS_LINUX: "x86_64 i686"
+          CIBW_ARCHS_MACOS: "x86_64 arm64"
+          CIBW_TEST_COMMAND: "python -c \"import effspm; print('import ok')\""
         run: python -m cibuildwheel --output-dir wheelhouse
 
       - name: Upload wheels as artifact
-        uses: actions/upload-artifact@v3
-
+        uses: actions/upload-artifact@v4
         with:
-          name: wheels
-          path: wheelhouse
+          name: wheels-${{ matrix.os }}
+          path: wheelhouse/*.whl
