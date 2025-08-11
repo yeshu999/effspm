@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main ]
     tags:
-      - 'v*'
+      - 'v*'      # publish on tags like v0.2.4
   pull_request:
     branches: [ main ]
 
@@ -16,9 +16,11 @@ jobs:
         os: [ubuntu-22.04, windows-2022, macos-14]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Set up Python (host)
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
@@ -27,6 +29,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install cibuildwheel==2.20.0
 
+      # macOS/Linux build (Bash + pipefail)
       - name: Build wheels (macOS/Linux)
         if: runner.os != 'Windows'
         shell: bash
@@ -37,12 +40,14 @@ jobs:
           CIBW_ARCHS_MACOS: "x86_64 arm64"
           CIBW_BUILD_VERBOSITY: "3"
           CIBW_TEST_COMMAND: "python -c \"import effspm; print('import ok')\""
+          # Build tools INSIDE cibuildwheel’s isolated env
           CIBW_BEFORE_BUILD_LINUX: "python -m pip install -U pip wheel setuptools pybind11 cmake ninja"
           CIBW_BEFORE_BUILD_MACOS: "python -m pip install -U pip wheel setuptools pybind11 cmake ninja"
         run: |
           set -euo pipefail
           python -m cibuildwheel --output-dir wheelhouse 2>&1 | tee cibw-${{ matrix.os }}.log
 
+      # Windows build (PowerShell) — skip win32, build AMD64 only
       - name: Build wheels (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -56,7 +61,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
-          python -m cibuildwheel --output-dir wheelhouse *>&1 | Tee-Object "cibw-${{ matrix.os }}.log"
+          python -m cibuildwheel --output-dir wheelhouse *>&1 | Tee-Object -FilePath "cibw-${{ matrix.os }}.log"
 
       - name: Upload wheels as artifact
         uses: actions/upload-artifact@v4
@@ -73,21 +78,22 @@ jobs:
 
   publish:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: build_wheels
+    needs: [build_wheels]
     runs-on: ubuntu-22.04
     permissions:
-      id-token: write
+      id-token: write   # <-- required for Trusted Publishing
       contents: read
     steps:
-      - name: Download wheel artifacts
+      - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: wheels-*
-          path: dist
-          merge-multiple: true
+          path: dist_all
 
-      - name: List wheels
-        run: ls -lh dist
+      - name: Flatten to dist/
+        shell: bash
+        run: |
+          mkdir -p dist
+          find dist_all -type f -name "*.whl" -exec mv {} dist/ \;
 
       - name: Publish to PyPI (Trusted Publishing)
         uses: pypa/gh-action-pypi-publish@v1.10.3
