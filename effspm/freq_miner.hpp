@@ -3,6 +3,8 @@
 #include "load_inst.hpp"
 #include <cstdlib> 
 #include <cmath> 
+#include <cstddef>  // for std::size_t
+
 using namespace std;
 void Freq_miner();
 void Out_patt(std::vector<int>& seq, unsigned int freq);
@@ -22,7 +24,8 @@ public:
 
 	Pattern(vector<int>& _seq, int item) {
 		seq.reserve(_seq.size());
-		for (int i = 0; i < _seq.size(); ++i)
+		for (std::size_t i = 0; i < _seq.size(); ++i)
+
 			seq.push_back(_seq[i]);
 		seq.push_back(item);
 		freq = 0;
