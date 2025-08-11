@@ -18,7 +18,13 @@ namespace py = pybind11;
 #include "utility.hpp"
 
 // BTMiner (wrapped in its own namespace in source files)
-#include "btminer/src/freq_miner.hpp"
+#if __has_include("btminer/src/freq_miner.hpp")
+  #include "btminer/src/freq_miner.hpp"
+#else
+  // Fallback to the common header (present as effspm/freq_miner.hpp; -Ieffspm is already set)
+  #include "freq_miner.hpp"
+#endif
+
 #include "btminer/src/load_inst.hpp"
 #include "btminer/src/utility.hpp"
 #include "btminer/src/build_mdd.hpp"
