@@ -36,6 +36,8 @@ jobs:
           CIBW_ARCHS_LINUX: "x86_64 i686"
           CIBW_ARCHS_MACOS: "x86_64 arm64"
           CIBW_TEST_COMMAND: "python -c \"import effspm; print('import ok')\""
+          CIBW_BUILD_VERBOSITY: "1"                         # show compiler output
+          CIBW_ENVIRONMENT_MACOS: "CC=clang CXX=clang++ MACOSX_DEPLOYMENT_TARGET=11.0"
         run: python -m cibuildwheel --output-dir wheelhouse
 
       - name: Upload wheels as artifact
