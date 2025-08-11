@@ -60,7 +60,7 @@ ext_modules = [
 
 setup(
     name="effspm",
-    version="0.2.5",
+    version="0.2.6",
     description="Efficient Sequential Pattern Mining Library",
     author="Yeswanth Vootla",
     packages=["effspm"],
