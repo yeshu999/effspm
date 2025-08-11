@@ -1,5 +1,7 @@
 #ifndef LARGEHM_FREQ_MINER_HPP
 #define LARGEHM_FREQ_MINER_HPP
+#include <cstdint>
+
 
 #include <vector>
 #include <string>
@@ -48,7 +50,7 @@ extern std::vector<bool>       slist;
 extern std::vector<Pattern>    pot_patt;
 extern std::vector<VPattern>   pot_vpatt;
 extern std::vector<unsigned long long int> last_strpnt;
-extern std::vector<unsigned long long int> ancest_base;
+extern std::vector<std::uint64_t> ancest_base;
 extern std::vector<int>        DFS_numfound;
 
 extern Pattern                 _patt;
@@ -63,13 +65,10 @@ extern bool                    ilist_nempty;
 //
 void Freq_miner();
 void Extend_patt(Pattern& _patt);
-void Mine_vec(unsigned long long int seq_ID,
-              int pos,
-              int num_found,
-              std::vector<unsigned long long int>& ancest,
-              std::vector<int>& items,
-              unsigned long long int inod,
-              int sgn);
+void Mine_vec(std::uint64_t, int, int,
+              std::vector<std::uint64_t>&,
+               std::vector<int>&,
+               std::uint64_t, int);
 void Out_patt(std::vector<int>& seq, unsigned int freq);
 
 } // namespace largehm

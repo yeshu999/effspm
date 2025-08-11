@@ -1,6 +1,10 @@
+
+#include <cstdint>
+#include <vector>
+
 #include <iostream>
 #include <time.h>
-#include <vector>        // for std::vector
+      // for std::vector
 #include <cmath>         // for std::ceil
 
 #include "freq_miner.hpp"
@@ -14,7 +18,7 @@ void Extend_patt(Pattern& _patt);
 void Mine_vec(unsigned long long int seq_ID,
               int pos,
               int num_found,
-              std::vector<unsigned long long int>& ancest,
+              std::vector<std::uint64_t> ancest_base;,
               std::vector<int>& items,
               unsigned long long int inod,
               int sgn);
@@ -27,7 +31,7 @@ std::vector<bool> slist;
 std::vector<Pattern> pot_patt;
 std::vector<VPattern> pot_vpatt;
 std::vector<unsigned long long int> last_strpnt;
-std::vector<unsigned long long int> ancest_base;
+std::vector<std::uint64_t> ancest_base;
 std::vector<int> DFS_numfound;
 
 Pattern _patt;
@@ -354,13 +358,13 @@ void Extend_patt(Pattern& _pattern) {
 }
 
 
-void Mine_vec(unsigned long long int seq_ID, 
-              int pos, 
-              int num_found, 
-              std::vector<unsigned long long int>& ancest, 
-              std::vector<int>& items, 
-              unsigned long long int pnt, 
-              int sgn) 
+void Mine_vec(std::uint64_t seq_ID,
+              int pos,
+              int num_found,
+              std::vector<std::uint64_t>& ancest,
+              std::vector<int>& items,
+              std::uint64_t pnt,
+              int sgn)
 {
     std::vector<bool> found(L + L * (ilist_nempty ? 1 : 0), false);
 
