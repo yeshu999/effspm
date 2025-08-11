@@ -18,7 +18,7 @@ void Extend_patt(Pattern& _patt);
 void Mine_vec(unsigned long long int seq_ID,
               int pos,
               int num_found,
-              std::vector<std::uint64_t> ancest_base;,
+             
               std::vector<int>& items,
               unsigned long long int inod,
               int sgn);
