@@ -49,7 +49,7 @@ extern std::vector<Pattern>    pot_patt;
 extern std::vector<VPattern>   pot_vpatt;
 extern std::vector<unsigned long long int> last_strpnt;
 
-extern std:vector<int>        DFS_numfound;
+extern std::vector<int>       DFS_numfound;
 
 extern Pattern                 _patt;
 extern VPattern                _vpatt;
