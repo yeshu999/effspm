@@ -1,10 +1,4 @@
 // _effspm.cpp
-#include <vector>
-#include <string>
-#include <algorithm>
-#include <cmath>
-#include <ctime>
-#include <limits>
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -18,13 +12,7 @@ namespace py = pybind11;
 #include "utility.hpp"
 
 // BTMiner (wrapped in its own namespace in source files)
-#if __has_include("btminer/src/freq_miner.hpp")
-  #include "btminer/src/freq_miner.hpp"
-#else
-  // Fallback to the common header (present as effspm/freq_miner.hpp; -Ieffspm is already set)
-  #include "freq_miner.hpp"
-#endif
-
+#include "btminer/src/freq_miner.hpp"
 #include "btminer/src/load_inst.hpp"
 #include "btminer/src/utility.hpp"
 #include "btminer/src/build_mdd.hpp"
@@ -537,7 +525,7 @@ m.def("LargeHTMiner",
         if (py::isinstance<py::str>(data)) {
             // ───────────── FILE‐BASED MODE ─────────────
             // Force mlim so that every item lands in temp_vec (never temp_lim):
-            largehm::mlim = std::numeric_limits<unsigned int>::max();
+            largehm::mlim = UINT_MAX;
 
             std::string path = data.cast<std::string>();
             if (! largehm::Load_instance(path, minsup))
