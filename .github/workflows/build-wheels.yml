@@ -4,19 +4,17 @@ on:
   push:
     branches: [ main ]
     tags:
-      - 'v*'          # publish when tagging a release like v0.2.4
+      - 'v*'      # publish on version tags like v0.1.27
   pull_request:
     branches: [ main ]
 
 jobs:
   build_wheels:
-    name: Build (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-22.04, windows-2022, macos-14]
     runs-on: ${{ matrix.os }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -47,6 +45,7 @@ jobs:
           path: wheelhouse/*.whl
 
   build_sdist:
+    # build source tarball once (any time; also needed for publish)
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -61,7 +60,7 @@ jobs:
           path: dist/*.tar.gz
 
   publish:
-    # only run on version tags
+    # only run when this workflow was triggered by a tag
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-22.04
@@ -71,7 +70,7 @@ jobs:
         with:
           path: dist_all
 
-      - name: Flatten artifacts to dist/
+      - name: Flatten to dist/
         shell: bash
         run: |
           mkdir -p dist
