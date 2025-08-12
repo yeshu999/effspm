@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main ]
     tags:
-      - 'v*'         # publish only when pushing a tag like v0.2.6
+      - 'v*'           # publish on tags like v0.2.6
   pull_request:
     branches: [ main ]
 
@@ -29,7 +29,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install cibuildwheel==2.20.0
 
-      # macOS / Linux build
+      # macOS/Linux build
       - name: Build wheels (macOS/Linux)
         if: runner.os != 'Windows'
         shell: bash
@@ -46,7 +46,7 @@ jobs:
           set -euo pipefail
           python -m cibuildwheel --output-dir wheelhouse 2>&1 | tee cibw-${{ matrix.os }}.log
 
-      # Windows build
+      # Windows build (AMD64 only)
       - name: Build wheels (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -96,7 +96,11 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install twine
 
-      # Remove any broken wheels (no METADATA or missing Name/Version)
+      - name: Install unzip for METADATA check
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
       - name: Drop wheels missing METADATA/Name/Version
         shell: bash
         run: |
@@ -105,7 +109,7 @@ jobs:
           mkdir -p tmpm
           kept=0
           for whl in dist/*.whl; do
-            echo "== Checking $whl"
+            echo "== Checking $(basename "$whl")"
             if ! unzip -p "$whl" '*/*.dist-info/METADATA' > tmpm/M 2>/dev/null; then
               echo "   -- Removing: no METADATA"
               rm -f "$whl"
@@ -132,13 +136,13 @@ jobs:
       - name: Twine check
         run: python -m twine check dist/*.whl
 
-      - name: Sanity install & import test for each wheel
+      - name: Sanity import test (each wheel)
         shell: bash
         run: |
           set -euo pipefail
           shopt -s nullglob
           for whl in dist/*.whl; do
-            echo "=== Testing $whl ==="
+            echo "=== Testing $(basename "$whl") ==="
             python -m venv .venv_test
             . .venv_test/bin/activate
             python -m pip install --upgrade pip
@@ -165,11 +169,15 @@ jobs:
           name: wheels-verified
           path: dist
 
+      # Choose ONE auth method:
+      # 1) Trusted Publishers (recommended): remove user/password and configure PyPI project
+      # 2) Classic token: keep user/password and set PYPI_API_TOKEN7 repo secret
+
       - name: Publish to PyPI (wheels only)
         uses: pypa/gh-action-pypi-publish@v1.10.3
         with:
           user: __token__
-          password: ${{ secrets.PYPI_API_TOKEN7 }}   # make sure this secret exists in your repo
+          password: ${{ secrets.PYPI_API_TOKEN7 }}
           packages-dir: dist
           verify-metadata: true
           skip-existing: true
