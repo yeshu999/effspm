@@ -36,7 +36,8 @@ jobs:
         env:
           CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-*"
           CIBW_SKIP: "pp* *-musllinux_*"
-          CIBW_ARCHS_LINUX: "x86_64 i686"
+          # Keep linux simple & reliable: x86_64 only (drop 32-bit i686)
+          CIBW_ARCHS_LINUX: "x86_64"
           CIBW_ARCHS_MACOS: "x86_64 arm64"
           CIBW_BUILD_VERBOSITY: "3"
           CIBW_TEST_COMMAND: "python -c \"import effspm; print('import ok')\""
@@ -47,7 +48,7 @@ jobs:
           set -euo pipefail
           python -m cibuildwheel --output-dir wheelhouse 2>&1 | tee cibw-${{ matrix.os }}.log
 
-      # Windows build (PowerShell) — skip win32, build AMD64 only
+      # Windows build (PowerShell) — build AMD64 only, skip win32
       - name: Build wheels (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -81,19 +82,56 @@ jobs:
     needs: [build_wheels]
     runs-on: ubuntu-22.04
     steps:
-      - name: Download artifacts
+      - name: Download wheel artifacts (merge)
         uses: actions/download-artifact@v4
         with:
-          path: dist_all
+          pattern: wheels-*
+          path: dist
+          merge-multiple: true
 
-      - name: Flatten to dist/
+      - name: Ensure we have wheels
+        run: |
+          shopt -s nullglob
+          count=(dist/*.whl)
+          if [ ${#count[@]} -eq 0 ]; then
+            echo "No wheels found in dist/"
+            exit 1
+          fi
+          ls -lh dist
+
+      - name: Verify wheels contain METADATA (Name/Version)
         shell: bash
         run: |
-          mkdir -p dist
-          find dist_all -type f -name "*.whl" -exec mv {} dist/ \;
+          python - <<'PY'
+          import sys, zipfile, pathlib, re
+          bad = 0
+          for whl in pathlib.Path('dist').glob('*.whl'):
+              print(f'== Checking {whl.name}')
+              try:
+                  with zipfile.ZipFile(whl) as zf:
+                      metas = [n for n in zf.namelist() if n.endswith('.dist-info/METADATA')]
+                      if not metas:
+                          print('!! No METADATA file found')
+                          bad += 1
+                          continue
+                      data = zf.read(metas[0]).decode('utf-8', 'replace')
+                      name = re.search(r'^Name:\s*(.+)$', data, re.M)
+                      vers = re.search(r'^Version:\s*(.+)$', data, re.M)
+                      print('   Name   =', name.group(1) if name else 'MISSING')
+                      print('   Version=', vers.group(1) if vers else 'MISSING')
+                      if not name or not vers:
+                          bad += 1
+              except zipfile.BadZipFile:
+                  print('!! BadZipFile: wheel is corrupted')
+                  bad += 1
+          sys.exit(bad)
+          PY
 
       - name: Publish to PyPI (wheels only)
         uses: pypa/gh-action-pypi-publish@v1.10.3
         with:
-          password: ${{ secrets.PYPI_API_TOKEN7 }}  # make sure this secret name matches yours
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN7 }}  # <-- ensure this secret exists
           packages-dir: dist
+          verify-metadata: true
+          skip-existing: true
