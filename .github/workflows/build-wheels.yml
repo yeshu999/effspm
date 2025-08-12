@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main ]
     tags:
-      - 'v*'          # publish when you push a tag like v0.2.6
+      - 'v*'         # publish only when pushing a tag like v0.2.6
   pull_request:
     branches: [ main ]
 
@@ -15,7 +15,6 @@ jobs:
       matrix:
         os: [ubuntu-22.04, windows-2022, macos-14]
     runs-on: ${{ matrix.os }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -30,40 +29,38 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install cibuildwheel==2.20.0
 
-      # macOS/Linux build
+      # macOS / Linux build
       - name: Build wheels (macOS/Linux)
         if: runner.os != 'Windows'
         shell: bash
         env:
-          CIBW_BUILD: 'cp39-* cp310-* cp311-* cp312-*'
-          CIBW_SKIP: 'pp* *-musllinux_*'
-          CIBW_ARCHS_LINUX: 'x86_64'
-          CIBW_ARCHS_MACOS: 'x86_64 arm64'
-          CIBW_BUILD_VERBOSITY: '3'
-          CIBW_TEST_COMMAND: 'python -c "import effspm; print(\"import ok\")"'
-          CIBW_BEFORE_BUILD_LINUX: 'python -m pip install -U pip wheel setuptools pybind11 cmake ninja'
-          CIBW_BEFORE_BUILD_MACOS: 'python -m pip install -U pip wheel setuptools pybind11 cmake ninja'
+          CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-*"
+          CIBW_SKIP: "pp* *-musllinux_*"
+          CIBW_ARCHS_LINUX: "x86_64"
+          CIBW_ARCHS_MACOS: "x86_64 arm64"
+          CIBW_BUILD_VERBOSITY: "3"
+          CIBW_TEST_COMMAND: "python -c \"import effspm; print('import ok')\""
+          CIBW_BEFORE_BUILD_LINUX: "python -m pip install -U pip wheel setuptools pybind11 cmake ninja"
+          CIBW_BEFORE_BUILD_MACOS: "python -m pip install -U pip wheel setuptools pybind11 cmake ninja"
         run: |
           set -euo pipefail
           python -m cibuildwheel --output-dir wheelhouse 2>&1 | tee cibw-${{ matrix.os }}.log
-          ls -lh wheelhouse || true
 
       # Windows build
       - name: Build wheels (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         env:
-          CIBW_BUILD: 'cp39-* cp310-* cp311-* cp312-*'
-          CIBW_SKIP: 'pp* *-win32'
-          CIBW_ARCHS_WINDOWS: 'AMD64'
-          CIBW_BUILD_VERBOSITY: '3'
-          CIBW_TEST_COMMAND: 'python -c "import effspm; print(\"import ok\")"'
-          CIBW_BEFORE_BUILD_WINDOWS: 'python -m pip install -U pip wheel setuptools pybind11 cmake ninja'
+          CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-*"
+          CIBW_SKIP: "pp* *-win32"
+          CIBW_ARCHS_WINDOWS: "AMD64"
+          CIBW_BUILD_VERBOSITY: "3"
+          CIBW_TEST_COMMAND: "python -c \"import effspm; print('import ok')\""
+          CIBW_BEFORE_BUILD_WINDOWS: "python -m pip install -U pip wheel setuptools pybind11 cmake ninja"
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
           python -m cibuildwheel --output-dir wheelhouse *>&1 | Tee-Object "cibw-${{ matrix.os }}.log"
-          Get-ChildItem wheelhouse
 
       - name: Upload wheels as artifact
         uses: actions/upload-artifact@v4
@@ -82,15 +79,12 @@ jobs:
     needs: [build_wheels]
     runs-on: ubuntu-22.04
     steps:
-      - name: Download wheel artifacts (merge)
+      - name: Download wheel artifacts (merged)
         uses: actions/download-artifact@v4
         with:
           pattern: wheels-*
           path: dist
           merge-multiple: true
-
-      - name: List wheels
-        run: ls -lh dist || true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -102,76 +96,57 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install twine
 
-      - name: Print METADATA for each wheel
+      # Remove any broken wheels (no METADATA or missing Name/Version)
+      - name: Drop wheels missing METADATA/Name/Version
         shell: bash
         run: |
-          python - <<'PY'
-          import zipfile, pathlib
-          for whl in pathlib.Path('dist').glob('*.whl'):
-              print('='*80)
-              print(f'WHEEL: {whl.name}')
-              with zipfile.ZipFile(whl) as zf:
-                  metas = [n for n in zf.namelist() if n.endswith('.dist-info/METADATA')]
-                  if not metas:
-                      print('!! No METADATA found')
-                      continue
-                  data = zf.read(metas[0]).decode('utf-8', 'replace')
-                  print(data)
-          print('='*80)
-          PY
+          set -euo pipefail
+          shopt -s nullglob
+          mkdir -p tmpm
+          kept=0
+          for whl in dist/*.whl; do
+            echo "== Checking $whl"
+            if ! unzip -p "$whl" '*/*.dist-info/METADATA' > tmpm/M 2>/dev/null; then
+              echo "   -- Removing: no METADATA"
+              rm -f "$whl"
+              continue
+            fi
+            if ! grep -q '^Name:' tmpm/M; then
+              echo "   -- Removing: Name missing in METADATA"
+              rm -f "$whl"
+              continue
+            fi
+            if ! grep -q '^Version:' tmpm/M; then
+              echo "   -- Removing: Version missing in METADATA"
+              rm -f "$whl"
+              continue
+            fi
+            kept=$((kept+1))
+          done
+          rm -rf tmpm
+          if [ $kept -eq 0 ]; then
+            echo "No valid wheels remain after verification."
+            exit 1
+          fi
 
-      - name: Check METADATA (Name/Version) and drop any broken wheels
-        shell: bash
-        run: |
-          python - <<'PY'
-          import sys, zipfile, pathlib, re, os
-          bad = []
-          dist = pathlib.Path('dist')
-          for whl in dist.glob('*.whl'):
-              try:
-                  with zipfile.ZipFile(whl) as zf:
-                      metas = [n for n in zf.namelist() if n.endswith('.dist-info/METADATA')]
-                      if not metas:
-                          print(f'!! {whl.name}: no METADATA file')
-                          bad.append(whl); continue
-                      data = zf.read(metas[0]).decode('utf-8', 'replace')
-                      name = re.search(r'^Name:\s*(.+)$', data, re.M)
-                      vers = re.search(r'^Version:\s*(.+)$', data, re.M)
-                      print(f'== {whl.name}: Name={name.group(1) if name else "MISSING"}, Version={vers.group(1) if vers else "MISSING"}')
-                      if not name or not vers:
-                          bad.append(whl)
-              except zipfile.BadZipFile:
-                  print(f'!! {whl.name}: Bad zip (corrupt)'); bad.append(whl)
-          for b in bad:
-              print(f'-- Removing invalid wheel: {b.name}')
-              os.remove(b)
-          remain = list(dist.glob('*.whl'))
-          if not remain:
-              print('No valid wheels remain after verification'); sys.exit(1)
-          print('Remaining wheels:')
-          for w in remain: print('  ', w.name)
-          PY
+      - name: Twine check
+        run: python -m twine check dist/*.whl
 
       - name: Sanity install & import test for each wheel
         shell: bash
         run: |
           set -euo pipefail
+          shopt -s nullglob
           for whl in dist/*.whl; do
             echo "=== Testing $whl ==="
             python -m venv .venv_test
             . .venv_test/bin/activate
             python -m pip install --upgrade pip
             python -m pip install --no-deps "$whl"
-            python - <<'PY'
-            import effspm
-            print("import ok:", getattr(effspm, "__version__", "no __version__"))
-            PY
+            python -c 'import effspm; print("import ok:", getattr(effspm, "__version__", "no __version__"))'
             deactivate
             rm -rf .venv_test
           done
-
-      - name: Twine check
-        run: python -m twine check dist/*.whl
 
       - name: Upload verified wheels
         uses: actions/upload-artifact@v4
@@ -190,14 +165,11 @@ jobs:
           name: wheels-verified
           path: dist
 
-      - name: List to be published
-        run: ls -lh dist
-
       - name: Publish to PyPI (wheels only)
         uses: pypa/gh-action-pypi-publish@v1.10.3
         with:
           user: __token__
-          password: ${{ secrets.PYPI_API_TOKEN7 }}
+          password: ${{ secrets.PYPI_API_TOKEN7 }}   # make sure this secret exists in your repo
           packages-dir: dist
           verify-metadata: true
           skip-existing: true
