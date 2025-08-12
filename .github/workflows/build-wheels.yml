@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main ]
     tags:
-      - 'v*'      # publish on tags like v0.2.4
+      - 'v*'
   pull_request:
     branches: [ main ]
 
@@ -29,26 +29,22 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install cibuildwheel==2.20.0
 
-      # macOS/Linux build (Bash + pipefail)
       - name: Build wheels (macOS/Linux)
         if: runner.os != 'Windows'
         shell: bash
         env:
           CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-*"
           CIBW_SKIP: "pp* *-musllinux_*"
-          # Keep linux simple & reliable: x86_64 only (drop 32-bit i686)
-          CIBW_ARCHS_LINUX: "x86_64"
+          CIBW_ARCHS_LINUX: "x86_64"        # keep simple for now
           CIBW_ARCHS_MACOS: "x86_64 arm64"
           CIBW_BUILD_VERBOSITY: "3"
           CIBW_TEST_COMMAND: "python -c \"import effspm; print('import ok')\""
-          # Build tools INSIDE cibuildwheel’s isolated env
           CIBW_BEFORE_BUILD_LINUX: "python -m pip install -U pip wheel setuptools pybind11 cmake ninja"
           CIBW_BEFORE_BUILD_MACOS: "python -m pip install -U pip wheel setuptools pybind11 cmake ninja"
         run: |
           set -euo pipefail
           python -m cibuildwheel --output-dir wheelhouse 2>&1 | tee cibw-${{ matrix.os }}.log
 
-      # Windows build (PowerShell) — build AMD64 only, skip win32
       - name: Build wheels (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -77,8 +73,7 @@ jobs:
           name: build-log-${{ matrix.os }}
           path: cibw-${{ matrix.os }}.log
 
-  publish:
-    if: startsWith(github.ref, 'refs/tags/v')
+  verify_wheels:
     needs: [build_wheels]
     runs-on: ubuntu-22.04
     steps:
@@ -89,49 +84,73 @@ jobs:
           path: dist
           merge-multiple: true
 
-      - name: Ensure we have wheels
-        run: |
-          shopt -s nullglob
-          count=(dist/*.whl)
-          if [ ${#count[@]} -eq 0 ]; then
-            echo "No wheels found in dist/"
-            exit 1
-          fi
-          ls -lh dist
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
 
-      - name: Verify wheels contain METADATA (Name/Version)
+      - name: Install verification tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install twine
+
+      - name: Quick list
+        run: |
+          ls -lh dist/*.whl
+
+      - name: Check METADATA (Name/Version) and drop any broken wheels
         shell: bash
         run: |
           python - <<'PY'
-          import sys, zipfile, pathlib, re
-          bad = 0
+          import sys, zipfile, pathlib, re, os
+          bad = []
           for whl in pathlib.Path('dist').glob('*.whl'):
-              print(f'== Checking {whl.name}')
-              try:
-                  with zipfile.ZipFile(whl) as zf:
-                      metas = [n for n in zf.namelist() if n.endswith('.dist-info/METADATA')]
-                      if not metas:
-                          print('!! No METADATA file found')
-                          bad += 1
-                          continue
-                      data = zf.read(metas[0]).decode('utf-8', 'replace')
-                      name = re.search(r'^Name:\s*(.+)$', data, re.M)
-                      vers = re.search(r'^Version:\s*(.+)$', data, re.M)
-                      print('   Name   =', name.group(1) if name else 'MISSING')
-                      print('   Version=', vers.group(1) if vers else 'MISSING')
-                      if not name or not vers:
-                          bad += 1
-              except zipfile.BadZipFile:
-                  print('!! BadZipFile: wheel is corrupted')
-                  bad += 1
-          sys.exit(bad)
+            try:
+              with zipfile.ZipFile(whl) as zf:
+                metas = [n for n in zf.namelist() if n.endswith('.dist-info/METADATA')]
+                if not metas:
+                  print(f'!! {whl.name}: no METADATA file')
+                  bad.append(whl); continue
+                data = zf.read(metas[0]).decode('utf-8', 'replace')
+                name = re.search(r'^Name:\s*(.+)$', data, re.M)
+                vers = re.search(r'^Version:\s*(.+)$', data, re.M)
+                print(f'== {whl.name}: Name={name.group(1) if name else "MISSING"}, Version={vers.group(1) if vers else "MISSING"}')
+                if not name or not vers:
+                  bad.append(whl)
+            except zipfile.BadZipFile:
+              print(f'!! {whl.name}: Bad zip (corrupt)')
+              bad.append(whl)
+          for b in bad:
+            print(f'-- Removing invalid wheel: {b.name}')
+            os.remove(b)
+          if bad:
+            print(f'Removed {len(bad)} invalid wheel(s)')
+          remaining = list(pathlib.Path('dist').glob('*.whl'))
+          if not remaining:
+            print('No valid wheels remain after verification'); sys.exit(1)
           PY
+
+      - name: Twine check (structure/metadata)
+        run: |
+          python -m twine check dist/*.whl
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [verify_wheels]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Download verified wheels
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          path: dist
+          merge-multiple: true
 
       - name: Publish to PyPI (wheels only)
         uses: pypa/gh-action-pypi-publish@v1.10.3
         with:
           user: __token__
-          password: ${{ secrets.PYPI_API_TOKEN7 }}  # <-- ensure this secret exists
+          password: ${{ secrets.PYPI_API_TOKEN7 }}
           packages-dir: dist
           verify-metadata: true
           skip-existing: true
