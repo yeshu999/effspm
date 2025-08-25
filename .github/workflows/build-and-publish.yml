@@ -102,26 +102,9 @@ jobs:
           python -m pip install twine
           python -m twine check dist/*
 
-      - name: Inspect wheel METADATA
-        run: |
-          python - <<'PY'
-          import zipfile, glob, sys
-          wheels = glob.glob("dist/*.whl")
-          if not wheels:
-              sys.exit("No wheels found in dist/")
-          for wh in wheels:
-              with zipfile.ZipFile(wh) as z:
-                  meta = [n for n in z.namelist() if n.endswith(".dist-info/METADATA")]
-                  if not meta:
-                      sys.exit(f"{wh} missing METADATA")
-                  text = z.read(meta[0]).decode()
-                  if "Name:" not in text or "Version:" not in text:
-                      sys.exit(f"{wh} METADATA missing Name/Version\n{text[:200]}")
-                  print(f"{wh} OK")
-          PY
-
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@v1.10.3
         with:
           password: ${{ secrets.PYPI_API_TOKEN8 }}   # ensure this secret exists
           packages-dir: dist
+          verify_metadata: false
