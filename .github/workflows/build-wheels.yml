@@ -1,10 +1,10 @@
-name: Build & Publish Wheels
+name: Build Wheels
 
 on:
   push:
     branches: [ main ]
     tags:
-      - 'v*'      # publish on tags like v0.2.6
+      - 'v*'
   pull_request:
     branches: [ main ]
 
@@ -46,7 +46,6 @@ jobs:
         run: |
           set -euo pipefail
           python -m cibuildwheel --output-dir wheelhouse 2>&1 | tee cibw-${{ matrix.os }}.log
-          # Build sdist once on Linux so users can fall back if needed
           if [ "$RUNNER_OS" = "Linux" ]; then
             python -m pip install -U pip wheel setuptools==74.* build
             python -m build --sdist --outdir wheelhouse
@@ -84,29 +83,3 @@ jobs:
         with:
           name: build-log-${{ matrix.os }}
           path: cibw-${{ matrix.os }}.log
-
-  publish:
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build_wheels]
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Download all artifacts (merge)
-        uses: actions/download-artifact@v4
-        with:
-          pattern: artifacts-*
-          merge-multiple: true
-          path: dist
-
-      - name: Install upload tooling (pinned)
-        run: |
-          python -m pip install -U pip
-          python -m pip install twine==6.1.0 pkginfo==1.12.1.2
-
-      - name: Twine check
-        run: python -m twine check dist/*
-
-      - name: Upload via Twine (skip duplicates)
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN8 }}
-        run: python -m twine upload --skip-existing dist/*
