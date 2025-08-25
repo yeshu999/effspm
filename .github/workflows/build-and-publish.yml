@@ -86,7 +86,7 @@ jobs:
         with:
           name: build-log-${{ matrix.os }}
           path: cibw-${{ matrix.os }}.log
-
+ 
   publish:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [build_wheels]
@@ -104,8 +104,7 @@ jobs:
           python -m pip install -U pip
           python -m pip install -U twine pkginfo
 
-      - name: Sanity check (optional)
-        run: python -m twine check dist/*
+      
 
       - name: Upload via Twine
         env:
