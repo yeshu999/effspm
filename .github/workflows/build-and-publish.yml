@@ -43,8 +43,9 @@ jobs:
           CIBW_BUILD_VERBOSITY: "3"
           CIBW_TEST_COMMAND: "python -c \"import effspm; print('import ok')\""
           # Pin setuptools<75 so wheels emit Metadata-Version: 2.3
-          CIBW_BEFORE_BUILD_LINUX: "python -m pip install -U pip wheel 'setuptools<75' pybind11 cmake ninja"
-          CIBW_BEFORE_BUILD_MACOS: "python -m pip install -U pip wheel 'setuptools<75' pybind11 cmake ninja"
+          CIBW_BEFORE_BUILD_LINUX: "python -m pip install -U pip wheel setuptools==74.* pybind11 cmake ninja"
+          CIBW_BEFORE_BUILD_MACOS: "python -m pip install -U pip wheel setuptools==74.* pybind11 cmake ninja"
+
         run: |
           set -euo pipefail
           python -m cibuildwheel --output-dir wheelhouse 2>&1 | tee cibw-${{ matrix.os }}.log
@@ -65,7 +66,8 @@ jobs:
           CIBW_BUILD_VERBOSITY: "3"
           CIBW_TEST_COMMAND: "python -c \"import effspm; print('import ok')\""
           # Pin setuptools<75 on Windows too
-          CIBW_BEFORE_BUILD_WINDOWS: "python -m pip install -U pip wheel 'setuptools<75' pybind11 cmake ninja"
+          CIBW_BEFORE_BUILD_WINDOWS: "python -m pip install -U pip wheel setuptools==74.* pybind11 cmake ninja"
+
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
