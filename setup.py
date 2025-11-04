@@ -1,5 +1,24 @@
 from setuptools import setup, Extension
 import pybind11
+import sys
+
+# Choose compiler flags depending on platform
+if sys.platform == "win32":
+    # MSVC-compatible flags
+    extra_compile_args = [
+        "/O2",         # optimize
+        "/std:c++17",  # C++ standard
+        "/EHsc",       # proper exception handling
+    ]
+else:
+    # GCC/Clang-compatible flags
+    extra_compile_args = [
+        "-std=c++17",
+        "-O3",
+        "-Wall",
+        "-Wextra",
+        "-Wno-unused-variable",
+    ]
 
 ext_modules = [
     Extension(
@@ -7,27 +26,24 @@ ext_modules = [
         sources=[
             # Python‐binding entrypoint
             "effspm/_effspm.cpp",
-            
+
             "effspm/freq_miner.cpp",
             "effspm/load_inst.cpp",
             "effspm/utility.cpp",
-                     # Collector for HTMiner in‐memory patterns
-            
 
             # HTMiner core sources
-            
             "effspm/htminer/src/freq_miner.cpp",
             "effspm/htminer/src/load_inst.cpp",
             "effspm/htminer/src/utility.cpp",
             "effspm/htminer/src/build_mdd.cpp",
-            
+
             # BTMiner sources
             "effspm/btminer/src/freq_miner.cpp",
             "effspm/btminer/src/load_inst.cpp",
             "effspm/btminer/src/utility.cpp",
             "effspm/btminer/src/build_mdd.cpp",
-             
 
+            # LargePP / LargeBM / LargeHM
             "effspm/largepp/src/freq_miner.cpp",
             "effspm/largepp/src/load_inst.cpp",
             "effspm/largepp/src/utility.cpp",
@@ -41,21 +57,18 @@ ext_modules = [
             "effspm/largehm/src/load_inst.cpp",
             "effspm/largehm/src/utility.cpp",
             "effspm/largehm/src/build_mdd.cpp",
-            
         ],
         include_dirs=[
             pybind11.get_include(),
-            "effspm",            # for _effspm.cpp
-             
-            "effspm/htminer/src",       # for HTMiner headers
-            "effspm/btminer/src", # for BTMiner headers
+            "effspm",
+            "effspm/htminer/src",
+            "effspm/btminer/src",
             "effspm/largepp/src",
             "effspm/largebm/src",
-            "effspm/largehm/src"
+            "effspm/largehm/src",
         ],
         language="c++",
-        extra_compile_args=["-std=c++11", "-O3","-Wall","-Wsign-compare","-Wunreachable-code","-fno-strict-overflow","-fno-common"],
-        
+        extra_compile_args=extra_compile_args,
     )
 ]
 
