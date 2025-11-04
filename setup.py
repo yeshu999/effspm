@@ -26,6 +26,7 @@ ext_modules = [
             "effspm/btminer/src/load_inst.cpp",
             "effspm/btminer/src/utility.cpp",
             "effspm/btminer/src/build_mdd.cpp",
+             
 
             "effspm/largepp/src/freq_miner.cpp",
             "effspm/largepp/src/load_inst.cpp",
@@ -53,14 +54,14 @@ ext_modules = [
             "effspm/largehm/src"
         ],
         language="c++",
-        extra_compile_args=["-std=c++11", "-O3"],
+        extra_compile_args=["-std=c++11", "-O3","-Wall","-Wsign-compare","-Wunreachable-code","-fno-strict-overflow","-fno-common"],
         
     )
 ]
 
 setup(
     name="effspm",
-    version="0.2.8",
+    version="0.3.0",
     description="Efficient Sequential Pattern Mining Library",
     author="Yeswanth Vootla",
     packages=["effspm"],

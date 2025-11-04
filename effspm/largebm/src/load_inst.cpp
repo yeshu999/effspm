@@ -1,13 +1,8 @@
-
-#include <sstream>
 #include <algorithm>
 #include <cmath>
-#include <ctime>
-#include <iostream>      // for std::cout, std::endl
 #include <fstream>
-#include <vector>
-#include <string>
-
+#include <iostream>
+#include <sstream>
 #include "load_inst.hpp"
 #include "build_mdd.hpp"
 #include "utility.hpp"
@@ -15,7 +10,7 @@
 
 namespace largebm {
 
-// ── global definitions ────────────────────────────────────────────
+// ── single definitions of globals ─────────────────────────────────
 bool use_list      = false;
 bool b_disp        = false;
 bool b_write       = false;
@@ -51,11 +46,10 @@ static void Load_items_list(const std::string& fname) {
             if (item_dic[a - 1] == -1) continue;
             seq.push_back(x);
         }
-        if (!seq.empty()) items.push_back(std::move(seq));
+        if (!seq.empty()) items.push_back(seq);
     }
 }
 
-// ─────────────── main loader ─────────────────────────────────────
 bool Load_instance(const std::string& items_file, double minsup) {
     // reset state
     N = L = num_nodes = theta = M = E = 0;
@@ -90,9 +84,6 @@ bool Load_instance(const std::string& items_file, double minsup) {
     // MDD build mode
     if (pre_pro) {
         if (!Preprocess(items_file, minsup)) return false;
-        std::cout << "\nPreprocess done in "
-                  << give_time(std::clock() - kk)
-                  << " seconds\n\n";
         DFS.clear();
         DFS.reserve(L);
         for (unsigned int i = 0; i < L; ++i)
@@ -100,23 +91,29 @@ bool Load_instance(const std::string& items_file, double minsup) {
         kk = std::clock();
         Load_items_pre(items_file);
     } else {
-        if (!Preprocess(items_file, 0.0)) return false;
+        if (!Preprocess(items_file, minsup)) return false;
         kk = std::clock();
         Load_items(items_file);
     }
 
-    std::cout << "\nMDD Database built in "
-              << give_time(std::clock() - kk)
-              << " seconds\n\n";
-    std::cout << "Found " << N
-              << " sequences, with max line len " << M
-              << ", and " << L << " items, and " << E << " entries\n";
-    std::cout << "Total MDD nodes: " << Tree.size() << std::endl;
+    // ensure DFS size
+    if (DFS.size() < L) {
+        DFS.reserve(L);
+        while (DFS.size() < L) {
+            DFS.emplace_back(-int(DFS.size()) - 1);
+        }
+    }
+
+    // SAFETY — seed any zeroed singletons from their str_pnt list
+    for (unsigned int i = 0; i < L && i < DFS.size(); ++i) {
+        if (DFS[i].freq == 0 && !DFS[i].str_pnt.empty()) {
+            DFS[i].freq = static_cast<unsigned long long>(DFS[i].str_pnt.size());
+        }
+    }
 
     return true;
 }
 
-// ────────────── Preprocess (list mode) ───────────────────────────
 bool Preprocess(const std::string& inst, double thresh) {
     std::ifstream file(inst);
     if (!file.good()) return false;
@@ -158,7 +155,6 @@ bool Preprocess(const std::string& inst, double thresh) {
     return true;
 }
 
-// Load_items_pre: MDD insert from file
 void Load_items_pre(const std::string& inst_name) {
     std::ifstream file(inst_name);
     if (!file.good()) return;
@@ -182,7 +178,7 @@ void Load_items_pre(const std::string& inst_name) {
                 continue;
             }
             if (ditem > 0) { ditem = item_dic[ditem - 1]; itmset_exists = true; }
-            else { ditem = -item_dic[-ditem - 1]; }
+            else           { ditem = -item_dic[-ditem - 1]; }
             if (sgn) { if (ditem > 0) ditem = -ditem; sgn = false; }
             temp_vec.push_back(ditem);
         }
@@ -193,7 +189,6 @@ void Load_items_pre(const std::string& inst_name) {
     }
 }
 
-// Load_items: full MDD build
 bool Load_items(const std::string& inst_name) {
     std::ifstream file(inst_name);
     if (!file.good()) return false;
@@ -227,4 +222,3 @@ void ClearCollected()   { collected.clear(); }
 const std::vector<std::vector<int>>& GetCollected() { return collected; }
 
 } // namespace largebm
-

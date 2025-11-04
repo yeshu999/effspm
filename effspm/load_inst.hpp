@@ -11,7 +11,7 @@ using namespace std;
 
 // ------------------------------------------------------------
 // forward declare Pattern (defined in freq_miner.hpp)
-class Pattern;
+struct Pattern;
 
 
 // Main entrypoint: load your file on disk into 'items', build DFS, theta, etc.

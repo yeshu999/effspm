@@ -2,6 +2,7 @@
 #include <sstream>
 #include <algorithm>
 #include <cmath>
+#include <fstream>
 #include "load_inst.hpp"
 #include "freq_miner.hpp"
 #include "utility.hpp"
@@ -36,6 +37,7 @@ bool Load_instance(string& items_file, double thresh)
 
         cout << "\nPreprocess done in " << give_time(clock() - kk) << " seconds\n\n";
 
+        DFS.clear();
         DFS.reserve(L);
         for (unsigned int i = 0; i < L; ++i)
             DFS.emplace_back(-int(i) - 1);
@@ -53,6 +55,23 @@ bool Load_instance(string& items_file, double thresh)
     cout << "Found " << N << " sequence, with max line len " << M
          << ", and " << L << " items, and " << E << " enteries\n";
 
+    // ───────────────────────────────────────────────────────────
+    // DEBUG snapshot of seeds right after loading
+    // ───────────────────────────────────────────────────────────
+    {
+        unsigned long long seeds_ge_theta = 0, seeds_nonzero = 0, max_freq = 0;
+        for (size_t i = 0; i < DFS.size(); ++i) {
+            if (DFS[i].freq > 0) ++seeds_nonzero;
+            if (DFS[i].freq >= theta) ++seeds_ge_theta;
+            if (DFS[i].freq > max_freq) max_freq = DFS[i].freq;
+        }
+       // std::cout << " theta=" << theta
+               //   << " | DFS.size=" << DFS.size()
+               //   << " | seeds>=theta=" << seeds_ge_theta
+              //    << " | seeds>0=" << seeds_nonzero
+              //    << " | max_seed_freq=" << max_freq << "\n";
+    }
+
     return true;
 }
 
@@ -67,12 +86,12 @@ void Load_py(const pybind11::object& data, double thresh)
     int max_id = 0;
     M = 0;  E = 0;
     for (auto& seq : items) {
-        M = max<unsigned int>(M, seq.size());
+        M = max<unsigned int>(M, static_cast<unsigned int>(seq.size()));
         E += seq.size();
         for (int x : seq)
             max_id = max(max_id, abs(x));
     }
-    L = max_id;
+    L = static_cast<unsigned int>(max_id);
     theta = (thresh < 1.0) ? ceil(thresh * N) : thresh;
 
     DFS.clear();
@@ -82,7 +101,7 @@ void Load_py(const pybind11::object& data, double thresh)
 }
 
 /* =================================================================
- *  The professor’s original helpers — untouched
+ *  The professor’s original helpers — untouched except minor safety
  * ================================================================= */
 static bool Preprocess(string& inst, double thresh)
 {
@@ -97,7 +116,7 @@ static bool Preprocess(string& inst, double thresh)
             string itm;
             while (word >> itm) {
                 ditem = stoi(itm);
-                L = max<unsigned int>(L, abs(ditem));
+                L = max<unsigned int>(L, static_cast<unsigned int>(abs(ditem)));
 
                 if (freq.size() < L) {
                     freq.resize(L, 0);
@@ -170,7 +189,7 @@ static void Load_items_pre(string& inst)
         }
         if (empty_seq) continue;
 
-        ++N;  E += size_m;  M = max<unsigned int>(M, size_m);
+        ++N;  E += size_m;  M = max<unsigned int>(M, static_cast<unsigned int>(size_m));
     }
 }
 
@@ -193,8 +212,8 @@ static bool Load_items(string& inst)
 
         while (word >> itm) {
             ditem = stoi(itm);
-            if (L < abs(ditem)) {
-                L = abs(ditem);
+            if (L < static_cast<unsigned int>(abs(ditem))) {
+                L = static_cast<unsigned int>(abs(ditem));
                 while (DFS.size() < L) {
                     DFS.emplace_back(-int(DFS.size()) - 1);
                     counted.push_back(0);
@@ -211,7 +230,7 @@ static bool Load_items(string& inst)
             ++size_m;
         }
         E += size_m;
-        M = max<unsigned int>(M, size_m);
+        M = max<unsigned int>(M, static_cast<unsigned int>(size_m));
     }
     return true;
 }

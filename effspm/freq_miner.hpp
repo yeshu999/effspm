@@ -24,7 +24,8 @@ public:
 
 	Pattern(vector<int>& _seq, int item) {
 		seq.reserve(_seq.size());
-		for (std::size_t i = 0; i < _seq.size(); ++i)
+		for (int i = 0; i < _seq.size(); ++i)
+
 
 			seq.push_back(_seq[i]);
 		seq.push_back(item);

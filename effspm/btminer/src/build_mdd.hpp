@@ -6,7 +6,9 @@
 
 namespace btminer {
 
-void Build_MDD(std::vector<int>& items);
+using std::vector;
+
+void Build_MDD(vector<int>& items);
 
 class Arc {
 public:
@@ -17,24 +19,16 @@ public:
     int itmset;
     int item;
 
-    Arc(int _itm, int _itmset, int _anc) {
-        itmset = _itmset;
-        anct = _anc;
-        item = _itm;
-    }
+    Arc(int _itm, int _itmset, int _anc)
+        : chld(-1), sibl(-1), freq(0), anct(_anc), itmset(_itmset), item(_itm) {}
 
-    Arc(int _itm, int _anc) {
-        item = _itm;
-        anct = _anc;
-    }
+    // sometimes professor used this shorter ctor
+    Arc(int _itm, int _anc)
+        : chld(-1), sibl(-1), freq(0), anct(_anc), itmset(0), item(_itm) {}
 
-    Arc() {
-        chld = -1;
-        sibl = -1;
-        freq = 0;
-    }
+    Arc() = default;
 };
 
-extern std::vector<Arc> Tree;
+extern vector<Arc> Tree;
 
-} 
+} // namespace btminer

@@ -1,3 +1,5 @@
+// ─── effspm/largehm/src/load_inst.cpp ────────────────────────────────────────
+
 #include <iostream>
 #include <sstream>
 #include <algorithm>
@@ -16,17 +18,17 @@ using namespace std;
 string out_file;
 string folder;
 
-bool b_disp       = false;
-bool b_write      = false;
-bool use_dic      = false;
-bool use_list     = false;
-bool just_build   = false;
-bool pre_pro      = false;
+bool b_disp        = false;
+bool b_write       = false;
+bool use_dic       = false;
+bool use_list      = false;
+bool just_build    = false;
+bool pre_pro       = false;
 bool itmset_exists = false;
 
-unsigned int M         = 0;
-unsigned int L         = 0;
-unsigned int mlim      = 0;
+unsigned int M          = 0;
+unsigned int L          = 0;
+unsigned int mlim       = 0;
 unsigned int time_limit = 0;
 
 unsigned long long int N     = 0;
@@ -37,13 +39,16 @@ clock_t start_time = 0;
 
 vector<vector<int>> items;
 
-vector<int> item_dic;
+vector<int>     item_dic;
 vector<Pattern> DFS;
 vector<VPattern> VDFS;
 
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Load_instance
+// ─────────────────────────────────────────────────────────────────────────────
 bool Load_instance(string& items_file, double thresh) {
-    // ─── 1) CLEAR ANY leftover state from a previous run ───
+    // 1) CLEAR leftover state
     Tree.clear();
     VTree.clear();
     CTree.clear();
@@ -58,62 +63,68 @@ bool Load_instance(string& items_file, double thresh) {
     E = 0;
     theta = 0;
     itmset_exists = false;
-    // ────────────────────────────────────────────────────
 
     clock_t kk = clock();
 
-    // Insert fresh dummy root node:
-	
-
-   
-
+    // root
     Tree.emplace_back(0, 0, 0);
 
     if (!pre_pro) {
         if (!Load_items(items_file))
             return false;
+
         DFS.reserve(L);
-        while (DFS.size() < L) {
+        while (DFS.size() < L)
             DFS.emplace_back(-static_cast<int>(DFS.size()) - 1);
-        }
+
         VDFS.reserve(L);
-        while (VDFS.size() < L) {
+        while (VDFS.size() < L)
             VDFS.emplace_back(static_cast<int>(VDFS.size()));
-        }
-        if (thresh < 1.0) {
+
+        if (thresh < 1.0)
             theta = static_cast<unsigned long long>(ceil(thresh * N));
-        } else {
+        else
             theta = static_cast<unsigned long long>(thresh);
-        }
+
+        start_time = clock();
     }
     else {
         if (!Load_items(items_file))
             return false;
-        if (thresh < 1.0) {
+
+        if (thresh < 1.0)
             theta = static_cast<unsigned long long>(ceil(thresh * N));
-        } else {
+        else
             theta = static_cast<unsigned long long>(thresh);
-        }
+
+        start_time = clock();
     }
 
-    cout << "\nMDD Database built in " << give_time(clock() - kk) << " seconds\n\n";
-    cout << "Found " << N << " sequence, with max line len " << M
-         << ", and " << L << " items, and " << E << " enteries\n";
-    // cout << "Total Trie nodes: " << Tree.size()
-    //      << " Total CTree nodes: " << CTree.size()
-    //      << " Total VTree nodes: " << VTree.size() << endl;
+    // 👇 only print when verbose/b_disp
+    if (b_disp) {
+        cout << "\nMDD Database built in " << give_time(clock() - kk) << " seconds\n\n";
+        cout << "Found " << N << " sequence, with max line len " << M
+             << ", and " << L << " items, and " << E << " enteries\n";
+        // cout << "Total Trie nodes: " << Tree.size()
+        //      << " Total CTree nodes: " << CTree.size()
+        //      << " Total VTree nodes: " << VTree.size() << endl;
+    }
 
     return true;
 }
 
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Preprocess
+// ─────────────────────────────────────────────────────────────────────────────
 bool Preprocess(string &inst, double thresh) {
     vector<unsigned long long int> MN(100, 0);
     vector<vector<bool>> ML(100, vector<bool>(1000000, false));
 
     ifstream file(inst);
     if (!file.good()) {
-        cout << "!!!!!! No such file exists: " << inst << " !!!!!!\n";
+        if (b_disp)
+            cout << "!!!!!! No such file exists: " << inst << " !!!!!!\n";
         return false;
     }
 
@@ -124,7 +135,7 @@ bool Preprocess(string &inst, double thresh) {
     int ditem;
     while (getline(file, line) && give_time(clock() - start_time) < time_limit) {
         ++N;
-        if (N % 10000000 == 0)
+        if (b_disp && N % 10000000 == 0)
             cout << "N: " << N << endl;
 
         istringstream word(line);
@@ -164,11 +175,10 @@ bool Preprocess(string &inst, double thresh) {
             M = size_m;
     }
 
-    if (thresh < 1.0) {
+    if (thresh < 1.0)
         theta = static_cast<unsigned long long>(ceil(thresh * N));
-    } else {
+    else
         theta = static_cast<unsigned long long>(thresh);
-    }
 
     int real_L = 0;
     item_dic.assign(L, -1);
@@ -176,11 +186,12 @@ bool Preprocess(string &inst, double thresh) {
     for (int i = 0; i < (int)L; ++i) {
         if (freq[i] >= theta) {
             item_dic[i] = ++real_L;
-            item_in[i] = true;
+            item_in[i]  = true;
         }
     }
 
-    cout << "Original number of items: " << L << " Reduced to: " << real_L << endl;
+    if (b_disp)
+        cout << "Original number of items: " << L << " Reduced to: " << real_L << endl;
 
     unsigned long long int LpM = 1;
     mlim = M;
@@ -195,12 +206,17 @@ bool Preprocess(string &inst, double thresh) {
                 ++ml;
         }
         LpM *= ml * (1 + itmset_exists);
-        cout << ml << " " << LpM << " " << MN[i] << endl;
+
+        if (b_disp)
+            cout << ml << " " << LpM << " " << MN[i] << endl;
+
         if (LpM * ulim > MN[i]) {
             orgmlim = i;
             while (i + ulim - 1 < (int)MN.size() && i + ulim - 1 < (int)M) {
-                cout << (MN[i - 1] - MN[i + ulim - 1]) << " "
-                     << MN[i + ulim - 1] << endl;
+                if (b_disp)
+                    cout << (MN[i - 1] - MN[i + ulim - 1]) << " "
+                         << MN[i + ulim - 1] << endl;
+
                 if ((MN[i - 1] - MN[i + ulim - 1]) < MN[i + ulim - 1]
                      && MN[i + ulim - 1] < 600000000) {
                     mlim = i - 1;
@@ -212,11 +228,12 @@ bool Preprocess(string &inst, double thresh) {
         }
     }
 
-    cout << "M is: " << M << " Mlim is: " << mlim
-         << " ulim is: " << ulim
-         << " original mlim is: " << orgmlim
-         << " guess is: "
-         << round((log(N) - log(6)) / log(real_L)) << endl;
+    if (b_disp)
+        cout << "M is: " << M << " Mlim is: " << mlim
+             << " ulim is: " << ulim
+             << " original mlim is: " << orgmlim
+             << " guess is: "
+             << round((log(N) - log(6)) / log(real_L)) << endl;
 
     if (mlim < (int)M) {
         for (int i = 0; i < real_L; ++i)
@@ -230,10 +247,14 @@ bool Preprocess(string &inst, double thresh) {
 }
 
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Load_items_pre
+// ─────────────────────────────────────────────────────────────────────────────
 bool Load_items_pre(string &inst_name) {
     ifstream file(inst_name);
     if (!file.good()) {
-        cout << "!!!!!! No such file exists: " << inst_name << " !!!!!!\n";
+        if (b_disp)
+            cout << "!!!!!! No such file exists: " << inst_name << " !!!!!!\n";
         return false;
     }
 
@@ -246,7 +267,6 @@ bool Load_items_pre(string &inst_name) {
         vector<int> temp_lim;
         bool sgn = false;
 
-        // L is final from Preprocess
         while (word >> itm) {
             ditem = stoi(itm);
             if (item_dic[std::abs(ditem) - 1] == -1) {
@@ -274,18 +294,16 @@ bool Load_items_pre(string &inst_name) {
             continue;
 
         ++N;
-        if (N % 10000000 == 0)
+        if (b_disp && N % 10000000 == 0)
             cout << N << endl;
 
         if (temp_vec.size() + temp_lim.size() > (size_t)M)
             M = static_cast<unsigned int>(temp_vec.size() + temp_lim.size());
 
-        // ─── Ensure DFS/VDFS size before Build_MDD ───
         while (DFS.size() < L)
             DFS.emplace_back(-static_cast<int>(DFS.size()) - 1);
         while (VDFS.size() < L)
             VDFS.emplace_back(static_cast<int>(VDFS.size()));
-        // ──────────────────────────────────────────────
 
         Build_MDD(temp_vec, temp_lim);
     }
@@ -294,12 +312,14 @@ bool Load_items_pre(string &inst_name) {
 }
 
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Load_items (no preprocess)
+// ─────────────────────────────────────────────────────────────────────────────
 bool Load_items(string &inst_name) {
-	// std::cerr << "[SANITY] In Load_items: inst_name='"
-	// << inst_name << "'" << std::endl;
     ifstream file(inst_name);
     if (!file.good()) {
-        cout << "!!!!!! No such file exists: " << inst_name << " !!!!!!\n";
+        if (b_disp)
+            cout << "!!!!!! No such file exists: " << inst_name << " !!!!!!\n";
         return false;
     }
 
@@ -307,7 +327,7 @@ bool Load_items(string &inst_name) {
     int ditem;
     while (getline(file, line) && give_time(clock() - start_time) < time_limit) {
         ++N;
-        if (N % 1000000 == 0)
+        if (b_disp && N % 1000000 == 0)
             cout << "Found " << N << " sequence, with max line len "
                  << M << ", and " << L << " items, and " << E
                  << " enteries\n";
@@ -325,7 +345,7 @@ bool Load_items(string &inst_name) {
 
             if (L < static_cast<unsigned int>(std::abs(ditem))) {
                 L = static_cast<unsigned int>(std::abs(ditem));
-                // Immediately grow DFS/VDFS to handle new L
+
                 while (DFS.size() < L)
                     DFS.emplace_back(-static_cast<int>(DFS.size()) - 1);
                 while (VDFS.size() < L)
@@ -337,16 +357,14 @@ bool Load_items(string &inst_name) {
             else
                 temp_lim.push_back(ditem);
         }
-         E += static_cast<unsigned long long>(temp_vec.size() + temp_lim.size());
+        E += static_cast<unsigned long long>(temp_vec.size() + temp_lim.size());
         if (temp_vec.size() + temp_lim.size() > (size_t)M)
             M = static_cast<unsigned int>(temp_vec.size() + temp_lim.size());
 
-        // ─── Ensure DFS/VDFS size before Build_MDD ───
         while (DFS.size() < L)
             DFS.emplace_back(-static_cast<int>(DFS.size()) - 1);
         while (VDFS.size() < L)
             VDFS.emplace_back(static_cast<int>(VDFS.size()));
-        // ──────────────────────────────────────────────
 
         Build_MDD(temp_vec, temp_lim);
     }

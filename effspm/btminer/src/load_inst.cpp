@@ -1,12 +1,11 @@
-
+// effspm/btminer/src/load_inst.cpp
 #include <iostream>
-#include <sstream>
 #include <fstream>
-#include <cmath>
-#include <ctime>
-#include <map>
-#include <vector>
+#include <sstream>
 #include <algorithm>
+#include <math.h>
+#include <time.h>
+
 #include "load_inst.hpp"
 #include "utility.hpp"
 #include "build_mdd.hpp"
@@ -16,23 +15,53 @@ namespace btminer {
 
 using namespace std;
 
-extern int num_nodes, cur_node;
+// ---------------------------------------------------------------------
+// global definitions (must match load_inst.hpp)
+// ---------------------------------------------------------------------
+int  M = 0;
+int  N = 0;
+int  L = 0;
+unsigned long long E = 0ULL;    // matches header: extern unsigned long long E;
+int  num_nodes = 0;
+int  theta = 0;
+int  cur_node = 0;
 
+map<string, int>  item_map;
+map<int, string>  item_map_rev;
 
-map<string, int> item_map;
-map<int, string> item_map_rev;
-vector<int> freq;
-vector<int> item_dic;
+std::vector<int>  freq;
+std::vector<int>  item_dic;
 
-void Load_items_pre(string& inst_name);
-bool Load_items(string& inst_name);
-bool Preprocess(string& inst, double thresh);
+// ✅ REAL DEFINITION lives here:
+std::vector<Pattern> DFS;
 
+string out_file, folder;
+bool   b_disp    = 0;
+bool   b_write   = 0;
+bool   use_dic   = 0;
+bool   just_build= 0;
+bool   pre_pro   = 1;
 
+int    N_mult    = 1;
+int    M_mult    = 1;
+int    time_limit= 30 * 3600;    // 30 hours, same as professor
 
+clock_t start_time;
 
-bool Load_instance(string& items_file, double thresh) {
+// ---------------------------------------------------------------------
+// forward decls
+// ---------------------------------------------------------------------
+void Load_items_pre(string &inst_name);
+bool Load_items(string &inst_name);
+bool Preprocess(string &inst, double thresh);
+
+// ---------------------------------------------------------------------
+// main loader
+// ---------------------------------------------------------------------
+bool Load_instance(string &items_file, double thresh) {
     clock_t kk = clock();
+
+    // root node for MDD
     Tree.emplace_back(0, 0, 0);
 
     if (pre_pro) {
@@ -41,55 +70,77 @@ bool Load_instance(string& items_file, double thresh) {
 
         cout << "\nPreprocess done in " << give_time(clock() - kk) << " seconds\n\n";
 
+        // build empty DFS of size L
+        DFS.clear();
         DFS.reserve(L);
         for (int i = 0; i < L; ++i)
             DFS.emplace_back(-i - 1);
 
         kk = clock();
         Load_items_pre(items_file);
-    } else if (!Load_items(items_file))
+    }
+    else if (!Load_items(items_file)) {
         return false;
+    }
     else {
-        theta = (thresh < 1) ? ceil(thresh * N * N_mult) : thresh;
+        if (thresh < 1)
+            theta = static_cast<int>(ceil(thresh * N * N_mult));
+        else
+            theta = static_cast<int>(thresh);
     }
 
     cout << "\nMDD Database built in " << give_time(clock() - kk) << " seconds\n\n";
-    cout << "Found " << N * N_mult << " sequence, with max line len " << M << ", and " << L << " items, and " << E << " enteries\n";
+    cout << "Found " << N * N_mult
+         << " sequence, with max line len " << M
+         << ", and " << L << " items, and " << E << " enteries\n";
     cout << "Total MDD nodes: " << Tree.size() << endl;
 
     return true;
 }
 
-bool Preprocess(string& inst, double thresh) {
+// ---------------------------------------------------------------------
+// preprocessing pass
+// ---------------------------------------------------------------------
+bool Preprocess(string &inst, double thresh) {
     ifstream file(inst);
-    if (!file.good()) {
+
+    if (file.good()) {
+        string line;
+        while (getline(file, line) && give_time(clock() - start_time) < time_limit) {
+            ++N;
+            vector<bool> counted(L, false);
+
+            istringstream word(line);
+            string itm;
+            while (word >> itm) {
+                int ditem = stoi(itm);
+                if (L < abs(ditem))
+                    L = abs(ditem);
+
+                // extend freq / counted if L grew
+                while (static_cast<int>(freq.size()) < L) {
+                    freq.push_back(0);
+                    counted.push_back(false);
+                }
+
+                int idx = abs(ditem) - 1;
+                if (!counted[idx]) {
+                    ++freq[idx];
+                    counted[idx] = true;
+                }
+            }
+        }
+    } else {
         cout << "!!!!!! No such file exists: " << inst << " !!!!!!\n";
         return false;
     }
 
-    string line;
-    int size_m, ditem;
-    while (getline(file, line) && give_time(clock() - start_time) < time_limit) {
-        ++N;
-        vector<bool> counted(L, 0);
-        istringstream word(line);
-        string itm;
-        while (word >> itm) {
-            ditem = stoi(itm);
-            if (L < abs(ditem)) L = abs(ditem);
-            while (freq.size() < L) {
-                freq.push_back(0);
-                counted.push_back(0);
-            }
-            if (!counted[abs(ditem) - 1]) {
-                ++freq[abs(ditem) - 1];
-                counted[abs(ditem) - 1] = 1;
-            }
-        }
-    }
+    if (thresh < 1)
+        theta = static_cast<int>(ceil(thresh * N * N_mult));
+    else
+        theta = static_cast<int>(thresh);
 
-    theta = (thresh < 1) ? ceil(thresh * N * N_mult) : thresh;
-
+    // build item_dic with only frequent items
     int real_L = 0;
     item_dic = vector<int>(L, -1);
     for (int i = 0; i < L; ++i) {
@@ -97,103 +148,127 @@ bool Preprocess(string& inst, double thresh) {
             item_dic[i] = ++real_L;
     }
 
-    cout << "Original number of items: " << L << " Reduced to: " << real_L << endl;
+    cout << "Original number of items: " << L
+         << " Reduced to: " << real_L << endl;
+
     L = real_L;
-    N = 0;
+    N = 0;   // will be recounted in Load_items_pre
+
     return true;
 }
 
-void Load_items_pre(string& inst_name) {
+// ---------------------------------------------------------------------
+// load after preprocessing
+// ---------------------------------------------------------------------
+void Load_items_pre(string &inst_name) {
     ifstream file(inst_name);
-    if (!file.good()) return;
 
-    string line;
-    int ditem;
-    while (getline(file, line) && give_time(clock() - start_time) < time_limit) {
-        istringstream word(line);
-        string itm;
-        vector<int> temp_vec;
-        bool sgn = 0;
-        while (word >> itm) {
-            if (use_dic) {
-                auto it = item_map.find(itm);
-                if (it == item_map.end()) {
-                    item_map[itm] = ++L;
-                    item_map_rev[L] = itm;
-                    ditem = L;
+    if (file.good()) {
+        string line;
+        while (getline(file, line) && give_time(clock() - start_time) < time_limit) {
+            istringstream word(line);
+            string itm;
+            vector<int> temp_vec;
+            bool sgn = false;
+            while (word >> itm) {
+                int ditem;
+                if (use_dic) {
+                    auto it = item_map.find(itm);
+                    if (it == item_map.end()) {
+                        item_map[itm] = ++L;
+                        item_map_rev[L] = itm;
+                        ditem = L;
+                    } else {
+                        ditem = it->second;
+                    }
                 } else {
-                    ditem = it->second;
+                    ditem = stoi(itm);
                 }
-            } else {
-                ditem = stoi(itm);
+
+                // drop infrequent items
+                if (freq[abs(ditem) - 1] < theta) {
+                    if (!sgn)
+                        sgn = (ditem < 0);
+                    continue;
+                } else {
+                    if (ditem > 0)
+                        ditem = item_dic[ditem - 1];
+                    else
+                        ditem = -item_dic[-ditem - 1];
+                }
+
+                if (sgn) {
+                    if (ditem > 0)
+                        ditem = -ditem;
+                    sgn = false;
+                }
+
+                temp_vec.push_back(ditem);
             }
 
-            if (pre_pro && freq.size() > abs(ditem) - 1 && freq[abs(ditem) - 1] < theta) {
-                if (!sgn)
-                    sgn = ditem < 0;
+            if (temp_vec.empty())
                 continue;
-            } else if (pre_pro) {
-                ditem = (ditem > 0) ? item_dic[ditem - 1] : -item_dic[-ditem - 1];
-            }
 
-            if (sgn && ditem > 0)
-                ditem = -ditem;
-            sgn = 0;
+            ++N;
 
-            temp_vec.push_back(ditem);
+            if (static_cast<int>(temp_vec.size()) > M)
+                M = static_cast<int>(temp_vec.size());
+
+            // this increments E inside Build_MDD
+            Build_MDD(temp_vec);
         }
-
-        if (temp_vec.empty()) continue;
-
-        ++N;
-        if (temp_vec.size() > M) M = temp_vec.size();
-
-        E += temp_vec.size();  // <-- make sure E gets incremented
-        Build_MDD(temp_vec);
     }
 }
 
-bool Load_items(string& inst_name) {
+// ---------------------------------------------------------------------
+// load without preprocessing
+// ---------------------------------------------------------------------
+bool Load_items(string &inst_name) {
     ifstream file(inst_name);
-    if (!file.good()) {
+
+    if (file.good()) {
+        string line;
+        while (getline(file, line) && give_time(clock() - start_time) < time_limit) {
+            ++N;
+            istringstream word(line);
+            string itm;
+            vector<int> temp_vec;
+            while (word >> itm) {
+                int ditem;
+                if (use_dic) {
+                    auto it = item_map.find(itm);
+                    if (it == item_map.end()) {
+                        item_map[itm] = ++L;
+                        item_map_rev[L] = itm;
+                        ditem = L;
+                    } else {
+                        ditem = it->second;
+                    }
+                } else {
+                    ditem = stoi(itm);
+                    if (L < abs(ditem)) {
+                        L = abs(ditem);
+                        // make sure DFS is large enough (unless just_build)
+                        while (static_cast<int>(DFS.size()) < L && !just_build) {
+                            DFS.reserve(L);
+                            DFS.emplace_back(-((int)DFS.size()) - 1);
+                        }
+                    }
+                }
+
+                temp_vec.push_back(ditem);
+            }
+
+            if (static_cast<int>(temp_vec.size()) > M)
+                M = static_cast<int>(temp_vec.size());
+
+            Build_MDD(temp_vec);
+        }
+    } else {
         cout << "!!!!!! No such file exists: " << inst_name << " !!!!!!\n";
         return false;
     }
 
-    string line;
-    int ditem;
-    while (getline(file, line) && give_time(clock() - start_time) < time_limit) {
-        ++N;
-        istringstream word(line);
-        string itm;
-        vector<int> temp_vec;
-        while (word >> itm) {
-            if (use_dic) {
-                auto it = item_map.find(itm);
-                if (it == item_map.end()) {
-                    item_map[itm] = ++L;
-                    item_map_rev[L] = itm;
-                    ditem = L;
-                } else {
-                    ditem = it->second;
-                }
-            } else {
-                ditem = stoi(itm);
-                if (L < abs(ditem)) {
-                    L = abs(ditem);
-                    while (DFS.size() < L && !just_build) {
-                        DFS.reserve(L);
-                        DFS.emplace_back(-DFS.size() - 1);
-                    }
-                }
-            }
-            temp_vec.push_back(ditem);
-        }
-
-        if (temp_vec.size() > M) M = temp_vec.size();
-        E += temp_vec.size();  // <-- make sure E gets incremented
-        Build_MDD(temp_vec);
-    }
     return true;
 }
 

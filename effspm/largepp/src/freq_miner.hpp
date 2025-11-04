@@ -1,43 +1,18 @@
 #pragma once
 
-#include "load_inst.hpp"
-namespace largepp   // ← BEGIN namespacing
-{
+#include <vector>
+#include <string>
+
+#include "pattern.hpp"   // defines largepp::Pattern
+#include "load_inst.hpp" // declares externs: items, L, theta, DFS, etc.
+#include "utility.hpp"   // flags, collected buffer, timers, helpers
+
+namespace largepp {
+
+// Public entry point
 void Freq_miner();
 
-class Pattern {
-public:
-
-	vector<int> seq;
-	vector<unsigned int> str_pnt;
-	vector<unsigned long long int> seq_ID;
-
-	vector<int> slist;
-	vector<int> ilist;
-
-	unsigned long long int freq;
-
-	Pattern(vector<int>& _seq, int item) {
-		seq.reserve(_seq.size());
-		for (int i = 0; i < _seq.size(); ++i)
-			seq.push_back(_seq[i]);
-		seq.push_back(item);
-		freq = 0;
-	}
-
-
-	Pattern(int item) {
-		seq.push_back(item);
-		freq = 0;
-	}
-
-	Pattern() {
-		freq = 0;
-	}
-
-};
-
-extern vector<Pattern> DFS;				//DFS queue of potential patterns to extend
-
+// (defined in the .cpp)
 extern unsigned long long int num_patt;
-}
+
+} // namespace largepp

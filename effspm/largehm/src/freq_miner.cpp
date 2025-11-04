@@ -1,26 +1,33 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// NEW CHANGE (2025-10-24):
+// - Always call Out_patt(...) so patterns are collected regardless of verbosity.
+// - Printing/writing remains guarded inside Out_patt by b_disp/b_write.
+// - This fixes LargeHT returning 0 patterns when verbose=False.
+// ─────────────────────────────────────────────────────────────────────────────
 
 #include <cstdint>
 #include <vector>
 
 #include <iostream>
 #include <time.h>
-      // for std::vector
 #include <cmath>         // for std::ceil
 
 #include "freq_miner.hpp"
 #include "build_mdd.hpp"
 #include "utility.hpp"
+
 std::vector<std::uint64_t> ancest_base;
+
 namespace largehm {
 
 void Out_patt(std::vector<int>& seq, unsigned int freq);
 void Extend_patt(Pattern& _patt);
-void Mine_vec(unsigned long long int seq_ID,
+void Mine_vec(std::uint64_t seq_ID,
               int pos,
               int num_found,
-             
+              std::vector<std::uint64_t>& ancest,
               std::vector<int>& items,
-              unsigned long long int inod,
+              std::uint64_t pnt,
               int sgn);
 
 unsigned long long int num_patt = 0;
@@ -28,25 +35,22 @@ unsigned long long int num_patt = 0;
 std::vector<bool> ilist;
 std::vector<bool> slist;
 
-std::vector<Pattern> pot_patt;
+std::vector<Pattern>  pot_patt;
 std::vector<VPattern> pot_vpatt;
 std::vector<unsigned long long int> last_strpnt;
 
 std::vector<int> DFS_numfound;
 
-Pattern _patt;
+Pattern  _patt;
 VPattern _vpatt;
 
-int itmset_size;
-int last_neg;
+int  itmset_size;
+int  last_neg;
 
 bool ilist_nempty;
 
-
 void Freq_miner() {
-    
-
-    // ─── Make sure DFS and VDFS are at least size L ─────────────────────────────
+    // Ensure DFS and VDFS are at least size L
     if (DFS.size() < static_cast<size_t>(L)) {
         size_t old = DFS.size();
         DFS.resize(static_cast<size_t>(L));
@@ -61,19 +65,6 @@ void Freq_miner() {
             VDFS[i] = VPattern(static_cast<int>(i));
         }
     }
-    // ─────────────────────────────────────────────────────────────────────────────
-
-   
-    if (!Tree.empty()) {
-        // std::cout << ", Tree[0].chld=" << Tree[0].chld
-        //           << ", Tree[0].sibl=" << Tree[0].sibl
-        //           << ", Tree[0].freq=" << Tree[0].freq;
-    }
-    // std::cout << ", DFS.size()=" << DFS.size()
-    //           << ", theta="    << theta
-    //           << ", M="        << M
-    //           << ", E="        << E
-    //           << std::endl;
 
     std::vector<int> tmp_list;
     for (int i = 0; i < static_cast<int>(L); ++i) {
@@ -84,7 +75,6 @@ void Freq_miner() {
             }
         }
     }
-
     for (int i = 0; i < static_cast<int>(DFS.size()); ++i) {
         DFS[i].list = tmp_list;
     }
@@ -92,8 +82,7 @@ void Freq_miner() {
     while (!DFS.empty() && give_time(std::clock() - start_time) < time_limit) {
         if (DFS.back().freq >= theta) {
             Extend_patt(DFS.back());
-        }
-        else {
+        } else {
             DFS.pop_back();
             if (!VDFS.empty() && VDFS.back().ass_patt == static_cast<int>(DFS.size())) {
                 VDFS.pop_back();
@@ -101,7 +90,6 @@ void Freq_miner() {
         }
     }
 }
-
 
 void Extend_patt(Pattern& _pattern) {
     swap(_patt, _pattern);
@@ -120,8 +108,7 @@ void Extend_patt(Pattern& _pattern) {
                 ilist_nempty = true;
             }
         }
-    }
-    else {
+    } else {
         for (auto it = _patt.list.begin(); it != _patt.list.end(); ++it)
             slist[-(*it) - 1] = true;
     }
@@ -149,8 +136,7 @@ void Extend_patt(Pattern& _pattern) {
                          CTree[_vpatt.seq_ID[pnt]].seq,
                          0,
                          -1);
-            }
-            else {
+            } else {
                 Mine_vec(_vpatt.seq_ID[pnt],
                          _vpatt.str_pnt[pnt],
                          -1,
@@ -174,18 +160,14 @@ void Extend_patt(Pattern& _pattern) {
             DFS_itm.pop_back();
             if (Tree[cur_sibl].itmset < 0) {
                 unsigned int carc = Tree[cur_sibl].chld;
-                Mine_vec(carc,
-                         0,
-                         -1,
+                Mine_vec(carc, 0, -1,
                          CTree[carc].ancest,
                          CTree[carc].seq,
                          _patt.str_pnt[pnt],
                          -1);
                 cur_sibl = CTree[carc].ancest.back();
                 while (cur_sibl != 0) {
-                    Mine_vec(cur_sibl - 1,
-                             0,
-                             -1,
+                    Mine_vec(cur_sibl - 1, 0, -1,
                              CTree[carc].ancest,
                              VTree[cur_sibl - 1].seq,
                              _patt.str_pnt[pnt],
@@ -213,8 +195,7 @@ void Extend_patt(Pattern& _pattern) {
                                 DFS_numfound.push_back(0);
                         }
                     }
-                }
-                else {
+                } else {
                     if (ilist[cur_itm - 1]) {
                         pot_patt[cur_itm + L - 1].freq += Tree[cur_sibl].freq;
                         if (Tree[cur_sibl].chld != 0 || Tree[cur_sibl].itmset < 0)
@@ -226,13 +207,15 @@ void Extend_patt(Pattern& _pattern) {
                 cur_sibl = Tree[cur_sibl].sibl;
             }
         }
+
         if (ilist_nempty) {
             for (int i = 0; i < (int)L; ++i) {
                 if (ilist[i])
                     last_strpnt[i] = pot_patt[i + L].str_pnt.size();
             }
         }
-        while(!DFS_seq.empty()) {
+
+        while (!DFS_seq.empty()) {
             unsigned long long int cur_sibl = DFS_seq.back();
             DFS_seq.pop_back();
             int num_found = 0;
@@ -242,18 +225,14 @@ void Extend_patt(Pattern& _pattern) {
             }
             if (Tree[cur_sibl].itmset < 0) {
                 unsigned int carc = Tree[cur_sibl].chld;
-                Mine_vec(carc,
-                         0,
-                         num_found,
+                Mine_vec(carc, 0, num_found,
                          CTree[carc].ancest,
                          CTree[carc].seq,
                          _patt.str_pnt[pnt],
                          -1);
                 cur_sibl = CTree[carc].ancest.back();
                 while (cur_sibl != 0) {
-                    Mine_vec(cur_sibl - 1,
-                             0,
-                             num_found,
+                    Mine_vec(cur_sibl - 1, 0, num_found,
                              CTree[carc].ancest,
                              VTree[cur_sibl - 1].seq,
                              _patt.str_pnt[pnt],
@@ -268,19 +247,17 @@ void Extend_patt(Pattern& _pattern) {
                 if (cur_itm > 0) {
                     if (num_found == itmset_size &&
                         ilist[cur_itm - 1] &&
-                        (std::abs(Tree[Tree[cur_sibl].anct].itmset) < std::abs(Tree[_patt.str_pnt[pnt]].itmset) 
+                        (std::abs(Tree[Tree[cur_sibl].anct].itmset) < std::abs(Tree[_patt.str_pnt[pnt]].itmset)
                          || !check_parent(Tree[cur_sibl].anct,
-                                         _patt.str_pnt[pnt],
-                                         last_strpnt[cur_itm - 1],
-                                         pot_patt[cur_itm + L - 1].str_pnt)))
-                    {
+                                          _patt.str_pnt[pnt],
+                                          last_strpnt[cur_itm - 1],
+                                          pot_patt[cur_itm + L - 1].str_pnt))) {
                         pot_patt[cur_itm + L - 1].freq += Tree[cur_sibl].freq;
                         if (Tree[cur_sibl].chld != 0 || Tree[cur_sibl].itmset < 0)
                             pot_patt[cur_itm + L - 1].str_pnt.push_back(cur_sibl);
                     }
                     if (slist[cur_itm - 1] &&
-                        std::abs(Tree[Tree[cur_sibl].anct].itmset) <= std::abs(Tree[_patt.str_pnt[pnt]].itmset))
-                    {
+                        std::abs(Tree[Tree[cur_sibl].anct].itmset) <= std::abs(Tree[_patt.str_pnt[pnt]].itmset)) {
                         pot_patt[cur_itm - 1].freq += Tree[cur_sibl].freq;
                         if (Tree[cur_sibl].chld != 0 || Tree[cur_sibl].itmset < 0)
                             pot_patt[cur_itm - 1].str_pnt.push_back(cur_sibl);
@@ -288,19 +265,17 @@ void Extend_patt(Pattern& _pattern) {
                     if (Tree[cur_sibl].chld != 0 || Tree[cur_sibl].itmset < 0) {
                         DFS_seq.push_back(cur_sibl);
                         if (ilist_nempty) {
-                            if (num_found < itmset_size 
-                                && cur_itm == std::abs(_patt.seq[last_neg + num_found])) 
+                            if (num_found < itmset_size &&
+                                cur_itm == std::abs(_patt.seq[last_neg + num_found]))
                                 DFS_numfound.push_back(num_found + 1);
                             else
                                 DFS_numfound.push_back(num_found);
                         }
                     }
-                }
-                else {
+                } else {
                     cur_itm = -cur_itm;
                     if (slist[cur_itm - 1] &&
-                        std::abs(Tree[Tree[cur_sibl].anct].itmset) <= std::abs(Tree[_patt.str_pnt[pnt]].itmset))
-                    {
+                        std::abs(Tree[Tree[cur_sibl].anct].itmset) <= std::abs(Tree[_patt.str_pnt[pnt]].itmset)) {
                         pot_patt[cur_itm - 1].freq += Tree[cur_sibl].freq;
                         if (Tree[cur_sibl].chld != 0 || Tree[cur_sibl].itmset < 0)
                             pot_patt[cur_itm - 1].str_pnt.push_back(cur_sibl);
@@ -323,22 +298,23 @@ void Extend_patt(Pattern& _pattern) {
     std::vector<int> ilistp;
     std::vector<int> slistp;
     for (auto it = _patt.list.begin(); it != _patt.list.end(); ++it) {
-        if (*it > 0 && pot_patt[(*it) + L - 1].freq >= theta) 
+        if (*it > 0 && pot_patt[(*it) + L - 1].freq >= theta)
             ilistp.push_back(*it);
         else if (*it < 0 && pot_patt[-(*it) - 1].freq >= theta) {
-            if (itmset_exists) 
+            if (itmset_exists)
                 slistp.push_back(-(*it));
             ilistp.push_back(*it);
             slistp.push_back(*it);
         }
-    } 
+    }
 
     for (auto it = ilistp.begin(); it != ilistp.end(); ++it) {
         int p;
-        if (*it < 0) 
+        if (*it < 0)
             p = -(*it) - 1;
         else
             p = (*it) - 1 + L;
+
         pot_patt[p].str_pnt.shrink_to_fit();
         DFS.push_back(pot_patt[p]);
         DFS.back().seq = _patt.seq;
@@ -347,16 +323,22 @@ void Extend_patt(Pattern& _pattern) {
             DFS.back().list = slistp;
         else
             DFS.back().list = ilistp;
+
         if (!CTree.empty() && !pot_vpatt[p].str_pnt.empty()) {
             pot_vpatt[p].ass_patt = static_cast<int>(DFS.size()) - 1;
             VDFS.push_back(pot_vpatt[p]);
         }
-        if (b_disp || b_write) 
-            Out_patt(DFS.back().seq, DFS.back().freq);
+
+        // ─────────────────────────────────────────────────────────────────────
+        // NEW CHANGE: Call Out_patt ALWAYS to populate `collected` even when
+        // verbose is false and we are not writing to a file.
+        // Out_patt itself guards printing/writing with b_disp/b_write.
+        // ─────────────────────────────────────────────────────────────────────
+        Out_patt(DFS.back().seq, DFS.back().freq);
+
         ++num_patt;
     }
 }
-
 
 void Mine_vec(std::uint64_t seq_ID,
               int pos,
@@ -377,7 +359,7 @@ void Mine_vec(std::uint64_t seq_ID,
                     pot_vpatt[cur_itm + L - 1].str_pnt.push_back(sgn * (pos + 1));
                 }
                 ++pot_patt[cur_itm + L - 1].freq;
-                found[cur_itm + L - 1] = true;            
+                found[cur_itm + L - 1] = true;
             }
             ++pos;
         }
@@ -385,8 +367,9 @@ void Mine_vec(std::uint64_t seq_ID,
 
     for (unsigned int k = pos; k < items.size(); ++k) {
         int cur_itm = std::abs(items[k]);
-        if (items[k] < 0) 
+        if (items[k] < 0)
             num_found = 0;
+
         if (slist[cur_itm - 1] && !found[cur_itm - 1]) {
             if (ancest.empty() || std::abs(Tree[ancest[cur_itm - 1]].itmset) <= std::abs(Tree[pnt].itmset)) {
                 if (k + 1 < static_cast<int>(items.size())) {
@@ -397,11 +380,12 @@ void Mine_vec(std::uint64_t seq_ID,
             }
             found[cur_itm - 1] = true;
         }
+
         if (num_found == itmset_size) {
             if (ilist[cur_itm - 1] && !found[cur_itm + L - 1]) {
-                if (ancest.empty() || 
-                    std::abs(Tree[ancest[cur_itm - 1]].itmset) < std::abs(Tree[pnt].itmset) 
-                    || !check_parent(ancest[cur_itm - 1], pnt, last_strpnt[cur_itm - 1], pot_patt[cur_itm + L - 1].str_pnt))
+                if (ancest.empty() ||
+                    std::abs(Tree[ancest[cur_itm - 1]].itmset) < std::abs(Tree[pnt].itmset) ||
+                    !check_parent(ancest[cur_itm - 1], pnt, last_strpnt[cur_itm - 1], pot_patt[cur_itm + L - 1].str_pnt))
                 {
                     if (k + 1 < static_cast<int>(items.size())) {
                         pot_vpatt[cur_itm + L - 1].seq_ID.push_back(seq_ID);
@@ -411,24 +395,24 @@ void Mine_vec(std::uint64_t seq_ID,
                 }
                 found[cur_itm + L - 1] = true;
             }
-        }
-        else if (cur_itm == std::abs(_patt.seq[last_neg + num_found])) {
+        } else if (cur_itm == std::abs(_patt.seq[last_neg + num_found])) {
             ++num_found;
         }
     }
 }
 
-
 void Out_patt(std::vector<int>& seq, unsigned int freq) {
+    // Always collect:
     largehm::collected.push_back(seq);
+
     std::ofstream file_o;
-    if (b_write) 
+    if (b_write)
         file_o.open(out_file, std::ios::app);
 
     for (int ii = 0; ii < static_cast<int>(seq.size()); ii++) {
         if (b_disp)
             std::cout << seq[ii] << " ";
-        if (b_write) 
+        if (b_write)
             file_o << seq[ii] << " ";
     }
     if (b_disp)

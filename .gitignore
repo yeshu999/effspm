@@ -1,2 +1,97 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual env
+.venv/
+venv/
+env/
+
+# Build / dist / eggs
+build/
+dist/
+*.egg-info/
+*.egg
+*.whl
+
+# C/C++ build
+*.o
+*.obj
+*.so
+*.dll
+*.dylib
+CMakeFiles/
+cmake-build-*/
+Makefile
+CMakeCache.txt
+
+# VS Code / IDE
+.vscode/
+.idea/
+*.swp
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
+*.log
+
+# Local datasets (adjust names if needed)
+kosarak.txt
+kosarak_s.txt
+final_kosarak_s.txt
+MSNBC.txt
+*.dat
+
+# OS cruft (Mac)
+.DS_Store
 effspm/*.so
 build/
+**/.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+
+# Virtual env
+.venv/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# IDE
+.vscode/
+.DS_Store
+
+# C++ build artifacts
+*.o
+*.obj
+*.so
+*.dylib
+*.dll
+
+
+# Virtual environments
+.venv/
+.venv312/
+.venv-asan
+
+# Python junk
+__pycache__/
+*.pyc
+
+# Build artifacts
+build/
+dist/
+effspm.egg-info/
+
+# OS / editor
+.DS_Store
+.vscode/
+
+# Debug stuff
+effspm_load_debug.log.zip

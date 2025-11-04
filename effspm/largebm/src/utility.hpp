@@ -1,18 +1,15 @@
 #pragma once
-
 #include <vector>
-#include <time.h>
-#include <string>
-#include "build_mdd.hpp"
 #include <ctime>
 
 namespace largebm {
-using namespace std;
 
-double give_time(std::clock_t kk);
+double give_time(std::clock_t ticks);
 
+// Check if `str_pnt` is an ancestor of `cur_arc` respecting itemset boundaries
+bool check_parent(unsigned long long cur_arc,
+                  unsigned long long str_pnt,
+                  unsigned long long start,
+                  std::vector<unsigned long long>& strpnt_vec);
 
-
-bool check_parent(unsigned long long int cur_arc, unsigned long long int str_pnt, unsigned long long int start, vector<unsigned long long int>& strpnt_vec);
-
-}
+} // namespace largebm
