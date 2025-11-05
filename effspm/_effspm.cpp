@@ -163,73 +163,95 @@ PYBIND11_MODULE(_effspm, m) {
     // ─────────────────────────────────────────────────────────────
     // BTMiner  (always uses professor's Load_instance)
     // ─────────────────────────────────────────────────────────────
-    m.def("BTMiner",
-        [](py::object data,
-           double minsup,
-           unsigned int time_limit,
-           bool preproc,
-           bool use_dic,
-           bool verbose,
-           const std::string &out_file)
-        {
-            // Configure professor globals
-            btminer::time_limit = static_cast<int>(time_limit);
-            btminer::pre_pro    = preproc;
-            btminer::use_dic    = use_dic;
-            btminer::b_disp     = verbose;
-            btminer::b_write    = !out_file.empty();
-            btminer::out_file   = out_file;
-            btminer::N_mult     = 1;
-            btminer::M_mult     = 1;
-            btminer::just_build = false;
+   // ─────────────────────────────────────────────────────────────
+// BTMiner  (always uses professor's Load_instance)
+// ─────────────────────────────────────────────────────────────
+m.def("BTMiner",
+    [](py::object data,
+       double minsup,
+       unsigned int time_limit,
+       bool preproc,
+       bool use_dic,
+       bool verbose,
+       const std::string &out_file)
+    {
+        // 1) Configure professor globals
+        btminer::time_limit = static_cast<int>(time_limit);
+        btminer::pre_pro    = preproc;
+        btminer::use_dic    = use_dic;
+        btminer::b_disp     = verbose;
+        btminer::b_write    = !out_file.empty();
+        btminer::out_file   = out_file;
+        btminer::N_mult     = 1;
+        btminer::M_mult     = 1;
+        btminer::just_build = false;
 
-            btminer::ClearCollected();
-            btminer::start_time = std::clock();
+        // 2) HARD RESET of *known* global state for BTMiner
+        // (Only touch what we know exists in btminer namespace)
+        btminer::ClearCollected();   // clear collected patterns
+        btminer::Tree.clear();       // clear MDD tree
+        btminer::DFS.clear();        // clear DFS patterns
 
-            TempFile tmp;
-            std::string path;
+        btminer::M      = 0;
+        btminer::L      = 0;
+        btminer::N      = 0;
+        btminer::theta  = 0;
+        btminer::E      = 0;
+        btminer::num_patt = 0;       // reset pattern counter if defined
 
-            if (py::isinstance<py::str>(data)) {
-                // File path: use directly
-                path = data.cast<std::string>();
-            } else {
-                // Python list → write to a temp file in the same format
-                auto seqs = data.cast<std::vector<std::vector<int>>>();
-                tmp.path  = write_temp_seq_file(seqs);
-                path      = tmp.path;
-            }
+        // NOTE: we do NOT reinsert root here; btminer::Load_instance()
+        // is responsible for calling Tree.emplace_back(0,0,0) as needed.
 
-            if (verbose) {
-                std::cerr << "[BTMiner] path=" << path
-                          << " minsup=" << minsup
-                          << " preproc=" << preproc
-                          << " use_dic=" << use_dic
-                          << std::endl;
-            }
+        btminer::start_time = std::clock();
 
-            if (!btminer::Load_instance(path, minsup)) {
-                throw std::runtime_error("BTMiner: failed to load instance from: " + path);
-            }
+        // 3) Handle input (path or list-of-lists)
+        TempFile tmp;
+        std::string path;
 
-            btminer::Freq_miner();
+        if (py::isinstance<py::str>(data)) {
+            // File path: use directly
+            path = data.cast<std::string>();
+        } else {
+            // Python list → write to a temp file in professor’s format
+            auto seqs = data.cast<std::vector<std::vector<int>>>();
+            tmp.path  = write_temp_seq_file(seqs);
+            path      = tmp.path;
+        }
 
-            py::dict out;
-            out["patterns"]     = btminer::GetCollected();
-            out["num_patterns"] = btminer::num_patt;
-            out["time"]         = btminer::give_time(std::clock() - btminer::start_time);
-            out["N"]            = btminer::N;
-            out["L"]            = btminer::L;
-            out["theta"]        = btminer::theta;
-            return out;
-        },
-        py::arg("data"),
-        py::arg("minsup")     = 0.01,
-        py::arg("time_limit") = 36000,
-        py::arg("preproc")    = false,
-        py::arg("use_dic")    = false,
-        py::arg("verbose")    = false,
-        py::arg("out_file")   = ""
-    );
+        if (verbose) {
+            std::cerr << "[BTMiner] path=" << path
+                      << " minsup=" << minsup
+                      << " preproc=" << preproc
+                      << " use_dic=" << use_dic
+                      << std::endl;
+        }
+
+        // 4) Build MDD + run miner
+        if (!btminer::Load_instance(path, minsup)) {
+            throw std::runtime_error("BTMiner: failed to load instance from: " + path);
+        }
+
+        btminer::Freq_miner();
+
+        // 5) Return results
+        py::dict out;
+        out["patterns"]     = btminer::GetCollected();
+        out["num_patterns"] = btminer::num_patt;
+        out["time"]         = btminer::give_time(std::clock() - btminer::start_time);
+        out["N"]            = btminer::N;
+        out["L"]            = btminer::L;
+        out["theta"]        = btminer::theta;
+        return out;
+    },
+    py::arg("data"),
+    py::arg("minsup")     = 0.01,
+    py::arg("time_limit") = 36000,
+    py::arg("preproc")    = false,
+    py::arg("use_dic")    = false,
+    py::arg("verbose")    = false,
+    py::arg("out_file")   = ""
+);
+
 
         // ─────────────────────────────────────────────────────────────
     // HTMiner  (works on files; we use a temp file for in-memory data)
