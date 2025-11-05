@@ -1,77 +1,54 @@
-#ifndef LARGEHM_FREQ_MINER_HPP
-#define LARGEHM_FREQ_MINER_HPP
-#include <cstdint>
-#include <vector>
-#include <string>
-#include <fstream>
-#include <ctime>      // for clock_t
-extern std::vector<std::uint64_t> ancest_base;
+#pragma once
+
+#include "load_inst.hpp"
+#include "build_mdd.hpp"
+
 namespace largehm {
 
-//
-// ─── Pattern & VPattern ──────────────────────────────────────────────────────
-//
+using namespace std;
+
+void Freq_miner();
 
 class Pattern {
 public:
-    std::vector<int>            seq;
-    unsigned int                freq;
-    std::vector<int>            list;
-    std::vector<unsigned long long int> str_pnt;
+    vector<int> seq;
+    vector<unsigned long long int> str_pnt;
+    vector<int> list;
+    unsigned long long int freq;
 
-    Pattern(int start_code = 0) : freq(0) {
-        if (start_code != 0)
-            seq.push_back(start_code);
+    Pattern(vector<int>& _seq, int item) {
+        seq.swap(_seq);
+        seq.push_back(item);
+        freq = 0;
+    }
+
+    Pattern(int item) {
+        seq.push_back(item);
+        freq = 0;
+    }
+
+    Pattern() {
+        freq = 0;
     }
 };
 
 class VPattern {
 public:
-    std::vector<unsigned long long int> str_pnt;
-    std::vector<unsigned long long int> seq_ID;
-    int                                 ass_patt;
+    unsigned long long int ass_patt;
+    vector<int> str_pnt;
+    vector<unsigned long long int> seq_ID;
 
-    VPattern(int assoc = -1) : ass_patt(assoc) {}
+    VPattern(unsigned long long int _patt) {
+        ass_patt = _patt;
+    }
+
+    VPattern() {
+        ass_patt = 0;
+    }
 };
 
-//
-// ─── Globals used by Freq_miner ──────────────────────────────────────────────
-//
-extern std::vector<Pattern>    DFS;
-extern std::vector<VPattern>   VDFS;
-
 extern unsigned long long int num_patt;
-
-extern std::vector<bool>       ilist;
-extern std::vector<bool>       slist;
-
-extern std::vector<Pattern>    pot_patt;
-extern std::vector<VPattern>   pot_vpatt;
-extern std::vector<unsigned long long int> last_strpnt;
-
-extern std::vector<int>       DFS_numfound;
-
-extern Pattern                 _patt;
-extern VPattern                _vpatt;
-
-extern int                     itmset_size;
-extern int                     last_neg;
-extern bool                    ilist_nempty;
-
-//
-// ─── Function Prototypes ─────────────────────────────────────────────────────
-//
-void Freq_miner();
-void Extend_patt(Pattern& _patt);
-void Mine_vec(std::uint64_t seq_ID,
-              int pos,
-              int num_found,
-              std::vector<std::uint64_t>& ancest,
-              std::vector<int>& items,
-              std::uint64_t pnt,
-              int sgn);
-void Out_patt(std::vector<int>& seq, unsigned int freq);
+extern vector<Pattern>  DFS;
+extern vector<VPattern> VDFS;
 
 } // namespace largehm
-
-#endif // LARGEHM_FREQ_MINER_HPP

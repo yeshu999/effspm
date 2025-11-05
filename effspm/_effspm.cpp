@@ -2,6 +2,553 @@
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+
+#include <iostream>
+#include <fstream>
+#include <cstdio>   // std::remove
+#include <vector>
+#include <string>
+#include <ctime>
+#include <cmath>
+
+namespace py = pybind11;
+
+// PrefixProjection headers (global namespace)
+#include "freq_miner.hpp"
+#include "load_inst.hpp"
+#include "utility.hpp"
+
+// BTMiner (namespaced)
+#include "btminer/src/freq_miner.hpp"
+#include "btminer/src/load_inst.hpp"
+#include "btminer/src/utility.hpp"
+#include "btminer/src/build_mdd.hpp"
+
+// HTMiner (namespaced)
+#include "htminer/src/build_mdd.hpp"
+#include "htminer/src/freq_miner.hpp"
+#include "htminer/src/load_inst.hpp"
+#include "htminer/src/utility.hpp"
+
+// LargePrefixProjection
+#include "largepp/src/freq_miner.hpp"
+#include "largepp/src/load_inst.hpp"
+#include "largepp/src/utility.hpp"
+
+// LargeBTMiner
+#include "largebm/src/freq_miner.hpp"
+#include "largebm/src/load_inst.hpp"
+#include "largebm/src/utility.hpp"
+#include "largebm/src/build_mdd.hpp"
+
+// LargeHTMiner
+#include "largehm/src/freq_miner.hpp"
+#include "largehm/src/load_inst.hpp"
+#include "largehm/src/utility.hpp"
+#include "largehm/src/build_mdd.hpp"
+
+namespace {
+
+// RAII helper for temp file
+struct TempFile {
+    std::string path;
+    ~TempFile() {
+        if (!path.empty()) {
+            std::remove(path.c_str());
+        }
+    }
+};
+
+// Write Python list[list[int]] to a temp file in professor’s format:
+// one sequence per line, items separated by spaces.
+std::string write_temp_seq_file(const std::vector<std::vector<int>>& seqs) {
+    char tmp_name[L_tmpnam];
+    if (!std::tmpnam(tmp_name)) {
+        throw std::runtime_error("Failed to create temporary file name");
+    }
+    std::string path = std::string(tmp_name) + ".txt";
+
+    std::ofstream ofs(path);
+    if (!ofs) {
+        throw std::runtime_error("Failed to open temporary file for writing: " + path);
+    }
+
+    for (const auto& seq : seqs) {
+        for (size_t i = 0; i < seq.size(); ++i) {
+            if (i) ofs << ' ';
+            ofs << seq[i];
+        }
+        ofs << '\n';
+    }
+
+    ofs.close();
+    return path;
+}
+
+} // anonymous namespace
+
+
+PYBIND11_MODULE(_effspm, m) {
+    m.doc() = "Unified SPM library: PrefixProjection, BTMiner, HTMiner, Large* variants";
+
+    // ─────────────────────────────────────────────────────────────
+    // PrefixProjection  (works directly on Python lists or files)
+    // ─────────────────────────────────────────────────────────────
+    m.def("PrefixProjection",
+        [](py::object data,
+           double minsup,
+           unsigned int time_limit,
+           bool preproc,
+           bool use_dic,
+           bool verbose,
+           const std::string &out_file)
+        {
+            ::time_limit = time_limit;
+            ::pre_pro    = preproc;
+            ::use_dic    = use_dic;
+            ::use_list   = false;
+            ::b_disp     = verbose;                  // controls prints in original code
+            ::b_write    = !out_file.empty();
+            ::out_file   = out_file;
+
+            ClearCollected();
+            start_time = std::clock();
+
+            if (py::isinstance<py::str>(data)) {
+                std::string path = data.cast<std::string>();
+                if (!Load_instance(path, minsup))
+                    throw std::runtime_error("PrefixProjection: failed to load file: " + path);
+            } else {
+                auto seqs = data.cast<std::vector<std::vector<int>>>();
+                items = std::move(seqs);
+                N = items.size();
+
+                int max_id = 0;
+                for (auto &seq : items)
+                    for (int x : seq)
+                        max_id = std::max(max_id, std::abs(x));
+                L = max_id;
+
+                theta = (minsup < 1.0) ? std::ceil(minsup * N) : minsup;
+
+                DFS.clear();
+                DFS.reserve(L);
+                for (unsigned int i = 0; i < L; ++i)
+                    DFS.emplace_back(-static_cast<int>(i) - 1);
+
+                M = 0;
+                E = 0;
+                for (auto &seq : items) {
+                    M = std::max<unsigned int>(M, seq.size());
+                    E += seq.size();
+                }
+            }
+
+            Freq_miner();
+
+            py::dict out;
+            out["patterns"] = GetCollected();
+            out["time"]     = give_time(std::clock() - start_time);
+            return out;
+        },
+        py::arg("data"),
+        py::arg("minsup")     = 0.01,
+        py::arg("time_limit") = 36000,
+        py::arg("preproc")    = false,
+        py::arg("use_dic")    = false,
+        py::arg("verbose")    = false,
+        py::arg("out_file")   = ""
+    );
+
+    // ─────────────────────────────────────────────────────────────
+    // BTMiner  (always uses professor's Load_instance)
+    // ─────────────────────────────────────────────────────────────
+    m.def("BTMiner",
+        [](py::object data,
+           double minsup,
+           unsigned int time_limit,
+           bool preproc,
+           bool use_dic,
+           bool verbose,
+           const std::string &out_file)
+        {
+            // Configure professor globals
+            btminer::time_limit = static_cast<int>(time_limit);
+            btminer::pre_pro    = preproc;
+            btminer::use_dic    = use_dic;
+            btminer::b_disp     = verbose;
+            btminer::b_write    = !out_file.empty();
+            btminer::out_file   = out_file;
+            btminer::N_mult     = 1;
+            btminer::M_mult     = 1;
+            btminer::just_build = false;
+
+            btminer::ClearCollected();
+            btminer::start_time = std::clock();
+
+            TempFile tmp;
+            std::string path;
+
+            if (py::isinstance<py::str>(data)) {
+                // File path: use directly
+                path = data.cast<std::string>();
+            } else {
+                // Python list → write to a temp file in the same format
+                auto seqs = data.cast<std::vector<std::vector<int>>>();
+                tmp.path  = write_temp_seq_file(seqs);
+                path      = tmp.path;
+            }
+
+            if (verbose) {
+                std::cerr << "[BTMiner] path=" << path
+                          << " minsup=" << minsup
+                          << " preproc=" << preproc
+                          << " use_dic=" << use_dic
+                          << std::endl;
+            }
+
+            if (!btminer::Load_instance(path, minsup)) {
+                throw std::runtime_error("BTMiner: failed to load instance from: " + path);
+            }
+
+            btminer::Freq_miner();
+
+            py::dict out;
+            out["patterns"]     = btminer::GetCollected();
+            out["num_patterns"] = btminer::num_patt;
+            out["time"]         = btminer::give_time(std::clock() - btminer::start_time);
+            out["N"]            = btminer::N;
+            out["L"]            = btminer::L;
+            out["theta"]        = btminer::theta;
+            return out;
+        },
+        py::arg("data"),
+        py::arg("minsup")     = 0.01,
+        py::arg("time_limit") = 36000,
+        py::arg("preproc")    = false,
+        py::arg("use_dic")    = false,
+        py::arg("verbose")    = false,
+        py::arg("out_file")   = ""
+    );
+
+        // ─────────────────────────────────────────────────────────────
+    // HTMiner  (works on files; we use a temp file for in-memory data)
+    // ─────────────────────────────────────────────────────────────
+   // ─────────────────────────────────────────────────────────────
+// HTMiner  (always uses professor's Load_instance; pre_pro forced ON)
+// ─────────────────────────────────────────────────────────────
+m.def("HTMiner",
+    [](py::object data,
+       double minsup,
+       unsigned int time_limit,
+       bool /*preproc*/,   // Python arg is ignored internally
+       bool use_dic,
+       bool verbose,
+       const std::string &out_file)
+    {
+        using namespace htminer;
+
+        // ───────── Global parameter setup ─────────
+        htminer::time_limit = time_limit;
+
+        // IMPORTANT: always run with preprocessing ON,
+        // regardless of the Python `preproc` flag.
+        htminer::pre_pro    = true;
+        htminer::use_dic    = use_dic;
+        htminer::just_build = false;
+        htminer::b_disp     = verbose;
+        htminer::b_write    = !out_file.empty();
+        htminer::out_file   = out_file;
+
+        // ───────── HARD RESET of HTMiner globals ─────────
+        htminer::ClearCollected();
+        htminer::Tree.clear();
+        htminer::VTree.clear();
+        htminer::CTree.clear();
+        htminer::DFS.clear();
+        htminer::VDFS.clear();
+        htminer::item_dic.clear();
+
+        htminer::M             = 0;
+        htminer::N             = 0;
+        htminer::L             = 0;
+        htminer::E             = 0;
+        htminer::theta         = 0;
+        htminer::mlim          = 0;
+        htminer::itmset_exists = false;
+
+        // NOTE: do NOT add a root arc here;
+        // htminer::Load_instance() already does Tree.emplace_back(0,0,0)
+        htminer::start_time = std::clock();
+
+        // ───────── Handle input (path or in-memory sequences) ─────────
+        TempFile    tmp;
+        std::string path;
+
+        if (py::isinstance<py::str>(data)) {
+            // data is a file path
+            path = data.cast<std::string>();
+        } else {
+            // data is a list[list[int]] → write a temp file in the same text format
+            auto seqs = data.cast<std::vector<std::vector<int>>>();
+            tmp.path  = write_temp_seq_file(seqs);
+            path      = tmp.path;
+        }
+
+        if (verbose) {
+            std::cerr << "[HTMiner] path=" << path
+                      << " minsup=" << minsup
+                      << " preproc(always)=true"
+                      << " use_dic=" << use_dic
+                      << std::endl;
+        }
+
+        // ───────── Build MDD via professor's loader ─────────
+        if (!htminer::Load_instance(path, minsup)) {
+            throw std::runtime_error("HTMiner: failed to load instance from: " + path);
+        }
+
+        // ───────── Run miner ─────────
+        htminer::Freq_miner();
+
+        // ───────── Return results ─────────
+        py::dict out;
+        out["patterns"] = htminer::GetCollected();
+        out["time"]     = htminer::give_time(std::clock() - htminer::start_time);
+        return out;
+    },
+    py::arg("data"),
+    py::arg("minsup")     = 0.01,
+    py::arg("time_limit") = 36000,
+    py::arg("preproc")    = false,   // kept for API symmetry, but IGNORED
+    py::arg("use_dic")    = false,
+    py::arg("verbose")    = false,
+    py::arg("out_file")   = ""
+);
+
+    // ─────────────────────────────────────────────────────────────
+    // LargePrefixProjection  (already has its own Load_py)
+    // ─────────────────────────────────────────────────────────────
+    m.def("LargePrefixProjection",
+        [](py::object data,
+           double minsup,
+           unsigned int time_limit,
+           bool preproc,
+           bool use_dic,
+           bool verbose,
+           const std::string &out_file)
+        {
+            largepp::time_limit = time_limit;
+            largepp::pre_pro    = preproc;
+            largepp::use_dic    = use_dic;
+            largepp::use_list   = true;        // large prefix uses list-based mining
+            largepp::b_disp     = verbose;
+            largepp::b_write    = !out_file.empty();
+            largepp::out_file   = out_file;
+            largepp::just_build = false;
+
+            largepp::ClearCollected();
+            largepp::start_time = std::clock();
+
+            if (py::isinstance<py::str>(data)) {
+                std::string fname = data.cast<std::string>();
+                largepp::Load_instance(fname, minsup);
+            } else {
+                largepp::Load_py(data, minsup);
+            }
+
+            largepp::Freq_miner();
+
+            py::dict out;
+            out["patterns"] = largepp::GetCollected();
+            out["time"]     = largepp::give_time(std::clock() - largepp::start_time);
+            return out;
+        },
+        py::arg("data"),
+        py::arg("minsup")     = 0.01,
+        py::arg("time_limit") = 36000,
+        py::arg("preproc")    = false,
+        py::arg("use_dic")    = false,
+        py::arg("verbose")    = false,
+        py::arg("out_file")   = ""
+    );
+
+    // ─────────────────────────────────────────────────────────────
+    // LargeBTMiner  (always uses professor's largebm::Load_instance)
+    // ─────────────────────────────────────────────────────────────
+    m.def("LargeBTMiner",
+        [](py::object data,
+           double minsup,
+           unsigned int time_limit,
+           bool preproc,
+           bool use_dic,
+           bool verbose,
+           const std::string &out_file)
+        {
+            using namespace largebm;
+
+            largebm::time_limit = time_limit;
+            largebm::pre_pro    = preproc;
+            largebm::use_dic    = use_dic;
+            largebm::use_list   = false;   // MDD-based
+            largebm::b_disp     = verbose;
+            largebm::b_write    = !out_file.empty();
+            largebm::out_file   = out_file;
+            largebm::just_build = false;
+
+            largebm::ClearCollected();
+            largebm::items.clear();
+            largebm::item_dic.clear();
+            largebm::inv_item_dic.clear();
+            largebm::Tree.clear();
+            largebm::DFS.clear();
+
+            largebm::start_time = std::clock();
+
+            TempFile tmp;
+            std::string path;
+
+            if (py::isinstance<py::str>(data)) {
+                path = data.cast<std::string>();
+            } else {
+                auto seqs = data.cast<std::vector<std::vector<int>>>();
+                tmp.path  = write_temp_seq_file(seqs);
+                path      = tmp.path;
+            }
+
+            if (verbose) {
+                std::cerr << "[LargeBTMiner] path=" << path
+                          << " minsup=" << minsup
+                          << " preproc=" << preproc
+                          << " use_dic=" << use_dic
+                          << std::endl;
+            }
+
+            if (!largebm::Load_instance(path, minsup)) {
+                throw std::runtime_error("LargeBTMiner: failed to load instance from: " + path);
+            }
+
+            largebm::Freq_miner();
+
+            py::dict out;
+            out["patterns"] = largebm::GetCollected();
+            out["time"]     = largebm::give_time(std::clock() - largebm::start_time);
+            return out;
+        },
+        py::arg("data"),
+        py::arg("minsup")     = 0.01,
+        py::arg("time_limit") = 36000,
+        py::arg("preproc")    = false,
+        py::arg("use_dic")    = false,
+        py::arg("verbose")    = false,
+        py::arg("out_file")   = ""
+    );
+
+    // ─────────────────────────────────────────────────────────────
+    // LargeHTMiner  (always uses professor's largehm::Load_instance; pre_pro forced ON)
+    // ─────────────────────────────────────────────────────────────
+      // ─────────────────────────────────────────────────────────────
+    // LargeHTMiner  (professor's Large HTMiner, namespaced as largehm)
+    // ─────────────────────────────────────────────────────────────
+    m.def("LargeHTMiner",
+        [](py::object data,
+           double minsup,
+           unsigned int time_limit,
+           bool /*preproc*/,   // kept for API symmetry; ignored
+           bool use_dic,
+           bool verbose,
+           const std::string &out_file)
+        {
+            using namespace largehm;
+
+            // 1) Global configuration (mirror professor's style)
+            largehm::time_limit = time_limit;
+            largehm::pre_pro    = true;       // always preprocess
+            largehm::use_dic    = use_dic;
+            largehm::just_build = false;
+            largehm::b_disp     = verbose;
+            largehm::b_write    = !out_file.empty();
+            largehm::out_file   = out_file;
+
+            // 2) HARD RESET of all global state for a fresh run
+            largehm::ClearCollected();   // our helper in largehm::utility.cpp
+
+            largehm::M             = 0;
+            largehm::L             = 0;
+            largehm::mlim          = 0;
+            largehm::N             = 0;
+            largehm::theta         = 0;
+            largehm::E             = 0;
+            largehm::itmset_exists = false;
+
+            // containers
+            // (item_dic reset is optional and not strictly needed here)
+            largehm::DFS.clear();
+            largehm::VDFS.clear();
+            largehm::Tree.clear();
+            largehm::VTree.clear();
+            largehm::CTree.clear();
+
+            largehm::start_time = std::clock();
+
+            // 3) Handle input (file path or Python list)
+            TempFile tmp;
+            std::string path;
+
+            if (py::isinstance<py::str>(data)) {
+                path = data.cast<std::string>();
+            } else {
+                auto seqs = data.cast<std::vector<std::vector<int>>>();
+                tmp.path  = write_temp_seq_file(seqs);
+                path      = tmp.path;
+            }
+
+            if (verbose) {
+                std::cerr << "[LargeHTMiner] path=" << path
+                          << " minsup=" << minsup
+                          << " preproc(always)=true"
+                          << " use_dic=" << use_dic
+                          << std::endl;
+            }
+
+            // 4) Build MDD / load instance.
+            //    NOTE: Load_instance() itself does Tree.emplace_back(0,0,0),
+            //    so we DO NOT create a root node here.
+            if (!largehm::Load_instance(path, minsup)) {
+                throw std::runtime_error("LargeHTMiner: failed to load instance from: " + path);
+            }
+
+            // 5) Run miner (same timing logic as original main)
+            if (!largehm::just_build &&
+                largehm::give_time(std::clock() - largehm::start_time) < largehm::time_limit)
+            {
+                largehm::Freq_miner();
+                if (largehm::give_time(std::clock() - largehm::start_time) >= largehm::time_limit) {
+                    std::cout << "TIME LIMIT REACHED\n";
+                }
+            }
+
+            // 6) Return collected patterns + runtime
+            py::dict out;
+            out["patterns"] = largehm::GetCollected();
+            out["time"]     = largehm::give_time(std::clock() - largehm::start_time);
+            return out;
+        },
+        py::arg("data"),
+        py::arg("minsup")     = 0.01,
+        py::arg("time_limit") = 36000,
+        py::arg("preproc")    = false,   // kept for API symmetry
+        py::arg("use_dic")    = false,
+        py::arg("verbose")    = false,
+        py::arg("out_file")   = ""
+    );
+
+
+}
+
+
+/*#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 namespace py = pybind11;
 #include <iostream>
 
@@ -27,6 +574,7 @@ namespace py = pybind11;
 #include "largepp/src/freq_miner.hpp"
 #include "largepp/src/load_inst.hpp"
 #include "largepp/src/utility.hpp"
+
 
 #include "largebm/src/freq_miner.hpp"
 #include "largebm/src/load_inst.hpp"
@@ -469,7 +1017,7 @@ m.def("HTMiner",
     // ─────────────────────────────────────────────────────────────────────────
     // LargeBTMiner (MDD-based)
     // ─────────────────────────────────────────────────────────────────────────
- m.def("LargeBTMiner",
+ /*m.def("LargeBTMiner",
     [](py::object data,
        double minsup,
        unsigned int time_limit,
@@ -676,4 +1224,4 @@ m.def("LargeHTMiner",
 
 
 
-}
+} */

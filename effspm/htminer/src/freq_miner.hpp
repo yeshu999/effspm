@@ -2,59 +2,58 @@
 
 #include "load_inst.hpp"
 #include "build_mdd.hpp"
+#include <vector>
 
 namespace htminer {
+
+using std::vector;
+
 void Freq_miner();
 
 class Pattern {
 public:
+    vector<int>      seq;
+    vector<unsigned int> str_pnt;
+    vector<int>      list;
+    unsigned long long int freq;
 
-	vector<int> seq;
-	vector<unsigned int> str_pnt;
-	vector<int> list;
+    Pattern(int item) {
+        seq.push_back(item);
+        freq = 0;
+    }
 
-	unsigned long long int freq;
+    Pattern(size_t _pnt, bool /*_res*/) {
+        str_pnt.reserve(_pnt);
+        freq = 0;
+    }
 
-	Pattern(int item) {
-		seq.push_back(item);
-		freq = 0;
-	}
-
-	Pattern(size_t _pnt, bool _res) {
-		str_pnt.reserve(_pnt);
-		freq = 0;
-	}
-
-	Pattern() {
-		freq = 0;
-	}
-
-
+    Pattern() {
+        freq = 0;
+    }
 };
 
 class VPattern {
 public:
+    unsigned long long int ass_patt;
+    vector<int>           str_pnt;
+    vector<unsigned int>  seq_ID;
 
-	unsigned long long int ass_patt;
-	
-	vector<int> str_pnt;
-	vector<unsigned int> seq_ID;
+    VPattern(unsigned long long int _patt) {
+        ass_patt = _patt;
+    }
 
-	VPattern(unsigned long long int _patt) {
-		ass_patt = _patt;
-	}
+    VPattern(size_t _pnt, bool /*a*/) {
+        str_pnt.reserve(_pnt);
+        ass_patt = 0;
+    }
 
-	VPattern(size_t _pnt, bool a) {
-		str_pnt.reserve(_pnt);
-	}
-
-	VPattern() {}
+    VPattern() {
+        ass_patt = 0;
+    }
 };
-
 
 extern unsigned long long int num_patt;
 extern vector<Pattern> DFS;
 extern vector<VPattern> VDFS;
 
-}
-
+} // namespace htminer

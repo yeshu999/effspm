@@ -1,142 +1,106 @@
-// ─── effspm/largehm/src/load_inst.cpp ────────────────────────────────────────
-
 #include <iostream>
 #include <sstream>
 #include <algorithm>
-#include <fstream>
-#include <cmath>
-#include <ctime>
-
+#include <math.h>
 #include "load_inst.hpp"
 #include "utility.hpp"
 #include "build_mdd.hpp"
 #include "freq_miner.hpp"
 
 namespace largehm {
+
 using namespace std;
 
-string out_file;
-string folder;
+unsigned int M = 0, L = 0, mlim;
+unsigned long long int N = 0, theta, E = 0;
 
-bool b_disp        = false;
-bool b_write       = false;
-bool use_dic       = false;
-bool use_list      = false;
-bool just_build    = false;
-bool pre_pro       = false;
-bool itmset_exists = false;
+bool itmset_exists = 0;
 
-unsigned int M          = 0;
-unsigned int L          = 0;
-unsigned int mlim       = 0;
-unsigned int time_limit = 0;
-
-unsigned long long int N     = 0;
-unsigned long long int theta = 0;
-unsigned long long int E     = 0;
-
-clock_t start_time = 0;
-
-vector<vector<int>> items;
-
-vector<int>     item_dic;
-vector<Pattern> DFS;
+vector<int>      item_dic;
+vector<Pattern>  DFS;
 vector<VPattern> VDFS;
 
+string out_file, folder;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Load_instance
-// ─────────────────────────────────────────────────────────────────────────────
+bool b_disp      = 0;
+bool b_write     = 0;
+bool use_dic     = 0;
+bool just_build  = 0;
+bool pre_pro     = 1;
+
+unsigned int time_limit = 10 * 3600;
+clock_t start_time;
+
+void Load_items_pre(string &inst_name);
+bool Load_items(string &inst_name);
+bool Preprocess(string& inst, double thresh);
+
 bool Load_instance(string& items_file, double thresh) {
-    // 1) CLEAR leftover state
-    Tree.clear();
-    VTree.clear();
-    CTree.clear();
-    DFS.clear();
-    VDFS.clear();
-    item_dic.clear();
-    items.clear();
-
-    N = 0;
-    M = 0;
-    L = 0;
-    E = 0;
-    theta = 0;
-    itmset_exists = false;
 
     clock_t kk = clock();
-
-    // root
     Tree.emplace_back(0, 0, 0);
 
-    if (!pre_pro) {
-        if (!Load_items(items_file))
-            return false;
+    if (pre_pro) {
+        if (!Preprocess(items_file, thresh))
+            return 0;
+
+        // ✅ KEEP THIS: Preprocess timing
+        if (b_disp)
+           cout << "\nPreprocess done in " << give_time(clock() - kk) << " seconds\n\n";
 
         DFS.reserve(L);
-        while (DFS.size() < L)
-            DFS.emplace_back(-static_cast<int>(DFS.size()) - 1);
+        for (int i = 0; i < (int)L; ++i)
+            DFS.emplace_back(-i - 1);
 
-        VDFS.reserve(L);
-        while (VDFS.size() < L)
-            VDFS.emplace_back(static_cast<int>(VDFS.size()));
+        kk = clock();
+        Load_items_pre(items_file);
 
-        if (thresh < 1.0)
-            theta = static_cast<unsigned long long>(ceil(thresh * N));
-        else
-            theta = static_cast<unsigned long long>(thresh);
-
-        start_time = clock();
     }
+    else if (!Load_items(items_file))
+        return 0;
     else {
-        if (!Load_items(items_file))
-            return false;
-
-        if (thresh < 1.0)
-            theta = static_cast<unsigned long long>(ceil(thresh * N));
+        if (thresh < 1)
+            theta = ceil(thresh * N);
         else
-            theta = static_cast<unsigned long long>(thresh);
-
-        start_time = clock();
+            theta = thresh;
     }
 
-    // 👇 only print when verbose/b_disp
-    if (b_disp) {
-        cout << "\nMDD Database built in " << give_time(clock() - kk) << " seconds\n\n";
-        cout << "Found " << N << " sequence, with max line len " << M
-             << ", and " << L << " items, and " << E << " enteries\n";
-        // cout << "Total Trie nodes: " << Tree.size()
-        //      << " Total CTree nodes: " << CTree.size()
-        //      << " Total VTree nodes: " << VTree.size() << endl;
-    }
+    // ✅ KEEP THIS: MDD build timing
+    if (b_disp)
+       cout << "\nMDD Database built in " << give_time(clock() - kk) << " seconds\n\n";
 
-    return true;
+    // ✅ KEEP THIS: main summary line
+    if (b_disp)
+       cout << "Found " << N << " sequence, with max line len " << M
+            << ", and " << L << " items, and " << E << " enteries\n";
+
+    // ❌ COMMENT OUT: extra debug
+    // cout << "Total Trie nodes: " << Tree.size()
+    //      << " Total CTree nodes: " << CTree.size()
+    //      << " Total VTree nodes: " << VTree.size() << endl;
+
+    return 1;
 }
 
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Preprocess
-// ─────────────────────────────────────────────────────────────────────────────
 bool Preprocess(string &inst, double thresh) {
+
     vector<unsigned long long int> MN(100, 0);
-    vector<vector<bool>> ML(100, vector<bool>(1000000, false));
-
+    vector<vector<bool>> ML(100, vector<bool>(1000000, 0));
     ifstream file(inst);
-    if (!file.good()) {
-        if (b_disp)
-            cout << "!!!!!! No such file exists: " << inst << " !!!!!!\n";
-        return false;
-    }
 
-    vector<unsigned long long int> freq(1000000, 0ULL);
-    vector<unsigned long long int> counted(1000000, 0ULL);
+    vector<unsigned long long int> freq(1000000);
+    vector<unsigned long long int> counted(1000000, 0);
+
+    if (!file.good()) {
+        // cout << "!!!!!! No such file exists: " << inst << " !!!!!!\n";
+        return 0;
+    }
 
     string line;
     int ditem;
     while (getline(file, line) && give_time(clock() - start_time) < time_limit) {
         ++N;
-        if (b_disp && N % 10000000 == 0)
-            cout << "N: " << N << endl;
+        // if (N % 10000000 == 0) cout << "N: " << N << endl;
 
         istringstream word(line);
         string itm;
@@ -146,117 +110,114 @@ bool Preprocess(string &inst, double thresh) {
             ditem = stoi(itm);
 
             if (ditem > 0)
-                itmset_exists = true;
+                itmset_exists = 1;
             else
-                ditem = -ditem;
+                ditem *= -1;
 
             if (size_m < (int)MN.size()) {
                 ++MN[size_m - 1];
-                if ((int)ML[size_m - 1].size() < ditem) {
-                    ML[size_m - 1].resize(ditem, false);
+                if (ML[size_m - 1].size() < (size_t)ditem) {
+                    ML[size_m - 1].reserve(ditem);
+                    while (ML[size_m - 1].size() < (size_t)ditem)
+                        ML[size_m - 1].push_back(0);
                 }
-                ML[size_m - 1][ditem - 1] = true;
+                ML[size_m - 1][ditem - 1] = 1;
             }
 
-            if (L < static_cast<unsigned int>(ditem)) {
-                L = static_cast<unsigned int>(ditem);
+            if (L < (unsigned int)ditem)
+                L = ditem;
+
+            if (freq.size() < L) {
+                freq.reserve(L);
+                counted.reserve(L);
+                while (freq.size() < L) {
+                    freq.push_back(0);
+                    counted.push_back(0);
+                }
             }
 
-            if ((int)freq.size() < ditem) {
-                freq.resize(ditem, 0ULL);
-                counted.resize(ditem, 0ULL);
-            }
             if (counted[ditem - 1] != N) {
                 ++freq[ditem - 1];
                 counted[ditem - 1] = N;
             }
+
+            ++E; // count entries
         }
         if (size_m > (int)M)
             M = size_m;
     }
 
-    if (thresh < 1.0)
-        theta = static_cast<unsigned long long>(ceil(thresh * N));
+    if (thresh < 1)
+        theta = ceil(thresh * N);
     else
-        theta = static_cast<unsigned long long>(thresh);
+        theta = thresh;
 
     int real_L = 0;
-    item_dic.assign(L, -1);
-    vector<bool> item_in(L, false);
+    item_dic = vector<int>(L, -1);
+    vector<bool> item_in(L, 0);
     for (int i = 0; i < (int)L; ++i) {
         if (freq[i] >= theta) {
             item_dic[i] = ++real_L;
-            item_in[i]  = true;
+            item_in[i]  = 1;
         }
     }
 
-    if (b_disp)
-        cout << "Original number of items: " << L << " Reduced to: " << real_L << endl;
+    // ❌ COMMENTED: extra stats
+    // cout << "Original number of items: " << L
+    //      << " Reduced to: " << real_L << endl;
 
     unsigned long long int LpM = 1;
     mlim = M;
     int orgmlim = 0;
     int ulim = min(1 + real_L / 4, 10);
     unsigned long long int ml;
-
+    int coef = 1 + 1 * itmset_exists;
     for (int i = 0; i + ulim < (int)MN.size() && i + ulim < (int)M; ++i) {
         ml = 0;
         for (int j = 0; j < (int)L; ++j) {
             if (ML[i][j] && item_in[j])
                 ++ml;
         }
-        LpM *= ml * (1 + itmset_exists);
-
-        if (b_disp)
-            cout << ml << " " << LpM << " " << MN[i] << endl;
-
+        LpM *= ml * coef;
+        // cout << ml << " " << LpM << " " << MN[i] << endl;
         if (LpM * ulim > MN[i]) {
             orgmlim = i;
             while (i + ulim - 1 < (int)MN.size() && i + ulim - 1 < (int)M) {
-                if (b_disp)
-                    cout << (MN[i - 1] - MN[i + ulim - 1]) << " "
-                         << MN[i + ulim - 1] << endl;
-
-                if ((MN[i - 1] - MN[i + ulim - 1]) < MN[i + ulim - 1]
-                     && MN[i + ulim - 1] < 600000000) {
+                // cout << MN[i - 1] - MN[i + ulim - 1]
+                //      << " " << MN[i + ulim - 1] << endl;
+                if (MN[i - 1] - MN[i + ulim - 1] < MN[i + ulim - 1] &&
+                    MN[i + ulim - 1] < 600000000) {
                     mlim = i - 1;
                     break;
                 }
-                ++i;
+                i += 1;
             }
             break;
         }
     }
 
-    if (b_disp)
-        cout << "M is: " << M << " Mlim is: " << mlim
-             << " ulim is: " << ulim
-             << " original mlim is: " << orgmlim
-             << " guess is: "
-             << round((log(N) - log(6)) / log(real_L)) << endl;
+    // cout << "M is: " << M << " Mlim is: " << mlim
+    //      << " ulim is: " << ulim
+    //      << " original mlim is: " << orgmlim
+    //      << " guess is: " << round((log(N) - log(6)) / log(real_L)) << endl;
 
-    if (mlim < (int)M) {
+    if (mlim < M) {
         for (int i = 0; i < real_L; ++i)
             VDFS.emplace_back(i);
     }
 
-    L = static_cast<unsigned int>(real_L);
+    L = real_L;
     N = 0;
     M = 0;
-    return true;
+
+    return 1;
 }
 
+void Load_items_pre(string &inst_name) {
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Load_items_pre
-// ─────────────────────────────────────────────────────────────────────────────
-bool Load_items_pre(string &inst_name) {
     ifstream file(inst_name);
-    if (!file.good()) {
-        if (b_disp)
-            cout << "!!!!!! No such file exists: " << inst_name << " !!!!!!\n";
-        return false;
-    }
+    if (!file.good())
+        return;
 
     string line;
     int ditem;
@@ -265,11 +226,11 @@ bool Load_items_pre(string &inst_name) {
         string itm;
         vector<int> temp_vec;
         vector<int> temp_lim;
-        bool sgn = false;
-
+        bool sgn = 0;
         while (word >> itm) {
             ditem = stoi(itm);
-            if (item_dic[std::abs(ditem) - 1] == -1) {
+
+            if (item_dic[abs(ditem) - 1] == -1) {
                 if (!sgn)
                     sgn = (ditem < 0);
                 continue;
@@ -279,97 +240,81 @@ bool Load_items_pre(string &inst_name) {
                 else
                     ditem = -item_dic[-ditem - 1];
             }
+
             if (sgn) {
                 if (ditem > 0)
                     ditem = -ditem;
-                sgn = false;
+                sgn = 0;
             }
-            if (temp_vec.size() <= (size_t)mlim)
+
+            if (temp_vec.size() <= mlim)
                 temp_vec.push_back(ditem);
             else
                 temp_lim.push_back(ditem);
+
+            ++E;
         }
 
         if (temp_vec.empty())
             continue;
 
         ++N;
-        if (b_disp && N % 10000000 == 0)
-            cout << N << endl;
+        // if (N % 10000000 == 0) cout << N << endl;
 
-        if (temp_vec.size() + temp_lim.size() > (size_t)M)
-            M = static_cast<unsigned int>(temp_vec.size() + temp_lim.size());
-
-        while (DFS.size() < L)
-            DFS.emplace_back(-static_cast<int>(DFS.size()) - 1);
-        while (VDFS.size() < L)
-            VDFS.emplace_back(static_cast<int>(VDFS.size()));
+        if (temp_vec.size() + temp_lim.size() > M)
+            M = temp_vec.size() + temp_lim.size();
 
         Build_MDD(temp_vec, temp_lim);
     }
-
-    return true;
 }
 
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Load_items (no preprocess)
-// ─────────────────────────────────────────────────────────────────────────────
 bool Load_items(string &inst_name) {
+
     ifstream file(inst_name);
     if (!file.good()) {
-        if (b_disp)
-            cout << "!!!!!! No such file exists: " << inst_name << " !!!!!!\n";
-        return false;
+        // cout << "!!!!!! No such file exists: " << inst_name << " !!!!!!\n";
+        return 0;
     }
 
     string line;
     int ditem;
     while (getline(file, line) && give_time(clock() - start_time) < time_limit) {
         ++N;
-        if (b_disp && N % 1000000 == 0)
-            cout << "Found " << N << " sequence, with max line len "
-                 << M << ", and " << L << " items, and " << E
-                 << " enteries\n";
+        // if (N % 1000000 == 0)
+        //     cout << "Found " << N << " sequence, with max line len " << M
+        //          << ", and " << L << " items, and " << E << " enteries\n";
 
         istringstream word(line);
         string itm;
         vector<int> temp_vec;
         vector<int> temp_lim;
-
         while (word >> itm) {
             ditem = stoi(itm);
-
             if (ditem > 0)
-                itmset_exists = true;
-
-            if (L < static_cast<unsigned int>(std::abs(ditem))) {
-                L = static_cast<unsigned int>(std::abs(ditem));
-
-                while (DFS.size() < L)
-                    DFS.emplace_back(-static_cast<int>(DFS.size()) - 1);
-                while (VDFS.size() < L)
-                    VDFS.emplace_back(static_cast<int>(VDFS.size()));
+                itmset_exists = 1;
+            if (L < (unsigned int)abs(ditem)) {
+                L = abs(ditem);
+                while (DFS.size() < L) {
+                    DFS.reserve(L);
+                    DFS.emplace_back(-DFS.size() - 1);
+                }
             }
 
-            if (temp_vec.size() < (size_t)mlim)
+            if (temp_vec.size() < mlim)
                 temp_vec.push_back(ditem);
             else
                 temp_lim.push_back(ditem);
-        }
-        E += static_cast<unsigned long long>(temp_vec.size() + temp_lim.size());
-        if (temp_vec.size() + temp_lim.size() > (size_t)M)
-            M = static_cast<unsigned int>(temp_vec.size() + temp_lim.size());
 
-        while (DFS.size() < L)
-            DFS.emplace_back(-static_cast<int>(DFS.size()) - 1);
-        while (VDFS.size() < L)
-            VDFS.emplace_back(static_cast<int>(VDFS.size()));
+            ++E;
+        }
+
+        if (temp_vec.size() + temp_lim.size() > M)
+            M = temp_vec.size();
 
         Build_MDD(temp_vec, temp_lim);
     }
 
-    return true;
+    return 1;
 }
 
 } // namespace largehm

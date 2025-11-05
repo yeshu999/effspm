@@ -25,8 +25,8 @@ bool Load_instance(string &items_file, double thresh) {
 	if (pre_pro) {
 		if(!Preprocess(items_file, thresh))
 			return 0;
-
-		cout << "\nPreprocess done in " << give_time(clock() - kk) << " seconds\n\n";
+        if (b_disp)
+		    cout << "\nPreprocess done in " << give_time(clock() - kk) << " seconds\n\n";
 
 		DFS.reserve(L);
 		for (int i = 0; i < L; ++i)
@@ -48,10 +48,10 @@ bool Load_instance(string &items_file, double thresh) {
 		else
 			theta = thresh;
 	}
-	
-	cout << "\nMDD Database built in " << give_time(clock() - kk) << " seconds\n\n";
-
-	cout << "Found " << N << " sequence, with max line len " << M << ", and " << L << " items, and " << E << " enteries\n";
+	if (b_disp)
+	     cout << "\nMDD Database built in " << give_time(clock() - kk) << " seconds\n\n";
+    if (b_disp)
+	     cout << "Found " << N << " sequence, with max line len " << M << ", and " << L << " items, and " << E << " enteries\n";
 
 
 	return 1;
@@ -108,8 +108,8 @@ bool Preprocess(string &inst, double thresh) {
 		if (freq[i] >= theta) 
 			item_dic[i] = ++real_L;
 	}
-	
-	cout << "Original number of items: " << L << " Reduced to: " << real_L << endl;
+	if (b_disp)
+	    cout << "Original number of items: " << L << " Reduced to: " << real_L << endl;
 
 	L = real_L;
 	N = 0;

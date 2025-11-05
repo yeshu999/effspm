@@ -7,17 +7,11 @@
 #include "utility.hpp"
 #include "freq_miner.hpp"
 
-
 using namespace std;
 
 string out_file;
 
-bool  b_disp = 0,
-      b_write = 0,
-      use_dic = 0,
-      use_list = 0,      // <-- Add this
-	 just_build = 0,
-    pre_pro = 1;
+bool  b_disp = 0, b_write = 0, use_dic = 0, just_build = 0, pre_pro = 1;
 
 unsigned int time_limit = 10 * 3600;
 
@@ -74,22 +68,28 @@ int main(int argc, char* argv[]) {
 
     cout << "\n********************** " << VV << "**********************\n";
 
-	string item_file = VV;
+	string item_file = folder + VV + ".txt";
 
 	cout << "loading instances...\n";
 
 	start_time = clock();
 
-	if (!largehm::Load_instance(item_file, thresh)) {
-if (!largehm::just_build && largehm::give_time(clock() - largehm::start_time) < largehm::time_limit) {
-    largehm::Freq_miner();
-    if (largehm::give_time(clock() - largehm::start_time) >= largehm::time_limit)
-        std::cout << "TIME LIMIT REACHED\n";
-    std::cout << "Mining Complete\n\nFound a total of " << largehm::num_patt << " patterns\n";    
-    std::cout << "\nTotal CPU time " << largehm::give_time(clock() - largehm::start_time) << " seconds\n\n";
-}
+	if (!Load_instance(item_file, thresh)) {
+		cout << "Files invalid, exiting.\n";
+		cin.get();
+		return 0;
+	}
+
+	//kk = clock();
+
+	if (!just_build && give_time(clock() - start_time) < time_limit) {
+		Freq_miner();
+		if (give_time(clock() - start_time) >= time_limit)
+			cout << "TIME LIMIT REACHED\n";
+		cout << "Mining Complete\n\nFound a total of " << num_patt << " patterns\n";	
+		cout << "\nTotal CPU time " << give_time(clock() - start_time) << " seconds\n\n";
+	}
 
 
 	return 0;
-}
 }

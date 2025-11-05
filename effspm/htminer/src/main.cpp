@@ -6,12 +6,12 @@
 #include "build_mdd.hpp"
 #include "utility.hpp"
 #include "freq_miner.hpp"
-
+namespace htminer {
 using namespace std;
 
 string out_file;
 
-bool  b_disp = 0, b_write = 0, use_dic = 0, just_build = 0, pre_pro = 0;
+bool  b_disp = 0, b_write = 0, use_dic = 0, just_build = 0, pre_pro = 1;
 
 unsigned int time_limit = 10 * 3600;
 
@@ -93,4 +93,5 @@ int main(int argc, char* argv[]) {
 
 
 	return 0;
+}
 }

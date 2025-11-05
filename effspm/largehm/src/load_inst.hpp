@@ -1,64 +1,27 @@
-#ifndef LARGEHM_LOAD_INST_HPP
-#define LARGEHM_LOAD_INST_HPP
+#pragma once
 
-#include <string>
 #include <vector>
+#include <string>
 #include <fstream>
-#include <ctime>     // for clock_t
-
-// We need Pattern and VPattern, so include freq_miner.hpp here:
-#include "freq_miner.hpp"
+#include <map>
+#include <unordered_set>
+#include <unordered_map>
+#include <time.h>
 
 namespace largehm {
 
-//
-// ─── Globals & Function Prototypes ───────────────────────────────────────────
-//
+using namespace std;
 
-// Output/folder:
-extern std::string out_file;
-extern std::string folder;
+bool Load_instance(string& items_file, double thresh);
 
-// Flags:
-extern bool b_disp;
-extern bool b_write;
-extern bool use_dic;
-extern bool use_list;
-extern bool just_build;
-extern bool pre_pro;
-extern bool itmset_exists;
+extern string out_file, folder;
 
-// Database statistics:
-extern unsigned int M;
-extern unsigned int L;
-extern unsigned int mlim;
-extern unsigned int time_limit;
+extern bool b_disp, b_write, use_dic, just_build, pre_pro, itmset_exists;
 
-extern unsigned long long int N;
-extern unsigned long long int theta;
-extern unsigned long long int E;
+extern unsigned int M, L, mlim, time_limit;
 
-// Timing:
+extern unsigned long long int N, theta, E;
+
 extern clock_t start_time;
 
-// In‐memory sequences (only if “in‐memory” mode):
-extern std::vector<std::vector<int>> items;
-
-// Preprocessing dictionary (maps original → compressed IDs):
-extern std::vector<int> item_dic;
-
-// DFS stacks used by the miner (Pattern / VPattern):
-extern std::vector<Pattern>   DFS;
-extern std::vector<VPattern>  VDFS;
-
-// Internal loader functions:
-bool Load_items_pre(std::string &inst_name);
-bool Load_items(std::string &inst_name);
-bool Preprocess(std::string &inst, double thresh);
-
-// Main entry‐point for loading & building the MDD:
-bool Load_instance(std::string &items_file, double thresh);
-
 } // namespace largehm
-
-#endif // LARGEHM_LOAD_INST_HPP

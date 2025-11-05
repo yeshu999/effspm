@@ -67,8 +67,8 @@ bool Load_instance(string &items_file, double thresh) {
     if (pre_pro) {
         if (!Preprocess(items_file, thresh))
             return false;
-
-        cout << "\nPreprocess done in " << give_time(clock() - kk) << " seconds\n\n";
+        if (b_disp)
+           cout << "\nPreprocess done in " << give_time(clock() - kk) << " seconds\n\n";
 
         // build empty DFS of size L
         DFS.clear();
@@ -88,12 +88,13 @@ bool Load_instance(string &items_file, double thresh) {
         else
             theta = static_cast<int>(thresh);
     }
-
-    cout << "\nMDD Database built in " << give_time(clock() - kk) << " seconds\n\n";
-    cout << "Found " << N * N_mult
-         << " sequence, with max line len " << M
-         << ", and " << L << " items, and " << E << " enteries\n";
-    cout << "Total MDD nodes: " << Tree.size() << endl;
+    if (b_disp)
+         cout << "\nMDD Database built in " << give_time(clock() - kk) << " seconds\n\n";
+    if (b_disp)
+        cout << "Found " << N * N_mult
+             << " sequence, with max line len " << M
+             << ", and " << L << " items, and " << E << " enteries\n";
+    //cout << "Total MDD nodes: " << Tree.size() << endl;
 
     return true;
 }
@@ -147,8 +148,8 @@ bool Preprocess(string &inst, double thresh) {
         if (freq[i] >= theta)
             item_dic[i] = ++real_L;
     }
-
-    cout << "Original number of items: " << L
+    if (b_disp)
+      cout << "Original number of items: " << L
          << " Reduced to: " << real_L << endl;
 
     L = real_L;

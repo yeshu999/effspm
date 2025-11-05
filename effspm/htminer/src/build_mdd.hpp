@@ -5,60 +5,67 @@
 #include "load_inst.hpp"
 
 namespace htminer {
-    void Build_MDD(std::vector<int>& items, std::vector<int>& items_lim);
 
-    class Arc {
-    public:
-        unsigned int chld;    
-        unsigned int sibl;
-        unsigned int freq;        
-        unsigned int anct;
-        int itmset;
-        int item;
+using std::vector;
 
-        Arc(unsigned int _itm, int _itmset, unsigned int _anc) {
-            chld = 0;    
-            sibl = 0;
-            freq = 0;
-            itmset = _itmset;
-            anct = _anc;
-            item = _itm;
-        }
+void Build_MDD(vector<int>& items, vector<int>& items_lim);
 
-        Arc() {
-            chld = 0;    
-            sibl = 0;
-            freq = 0;
-        }
-    };
+class Arc {
+public:
+    unsigned int chld;
+    unsigned int sibl;
+    unsigned int freq;
+    unsigned int anct;
+    int itmset;
+    int item;
 
-    class VArc {
-    public:
-        unsigned int sibl;    
-        std::vector<int> seq;
+    Arc(unsigned int _itm, int _itmset, unsigned int _anc) {
+        chld = 0;
+        sibl = 0;
+        freq = 0;
+        itmset = _itmset;
+        anct = _anc;
+        item = _itm;
+    }
 
-        VArc(std::vector<int>& items, unsigned int _sib) {
-            sibl = _sib;
-            seq.swap(items);
-        }
-        
-        VArc() {
-            sibl = 0;
-        }
-    };
+    Arc() {
+        chld = 0;
+        sibl = 0;
+        freq = 0;
+        itmset = 0;
+        anct = 0;
+        item = 0;
+    }
+};
 
-    class CArc {
-    public:
-        std::vector<int> seq;
-        std::vector<unsigned int> ancest;
+class VArc {
+public:
+    unsigned int sibl;
+    vector<int> seq;
 
-        CArc(std::vector<unsigned int>& _anc, std::vector<int>& items) {
-            ancest.swap(_anc);
-            seq.swap(items);
-        }
-    };
+    VArc(vector<int>& items, unsigned int _sib) {
+        sibl = _sib;
+        seq.swap(items);
+    }
 
-    extern std::vector<Arc> Tree;
-    extern std::vector<VArc> VTree;
-    extern std::vector<CArc> CTree;
-}
+    VArc() {
+        sibl = 0;
+    }
+};
+
+class CArc {
+public:
+    vector<int> seq;
+    vector<unsigned int> ancest;
+
+    CArc(vector<unsigned int>& _anc, vector<int>& items) {
+        ancest.swap(_anc);
+        seq.swap(items);
+    }
+};
+
+extern vector<Arc> Tree;
+extern vector<VArc> VTree;
+extern vector<CArc> CTree;
+
+} // namespace htminer

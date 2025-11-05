@@ -1,93 +1,73 @@
-#ifndef LARGEHM_BUILD_MDD_HPP
-#define LARGEHM_BUILD_MDD_HPP
+#pragma once
 
 #include <vector>
-#include <unordered_map>
-#include <cstddef>          // for size_t
-#include <cstdint>          // for uint64_t
-
-#include "load_inst.hpp"    // defines L, DFS, VDFS, Tree, etc.
-#include "freq_miner.hpp"   // for Pattern, VPattern
-#include "utility.hpp"      // if you need check_parent or collected
+#include <cmath>
+#include "load_inst.hpp"
 
 namespace largehm {
 
-//
-// ─── Types & Globals ─────────────────────────────────────────────────────────
-//
+using namespace std;
 
-struct Arc;
-struct VArc;
-struct CArc;
+void Build_MDD(vector<int>& items, vector<int>& items_lim);
 
-extern std::vector<Arc>       Tree;
-extern std::vector<VArc>      VTree;
-extern std::vector<CArc>      CTree;
+class Arc {
+public:
+    unsigned long long int chld;
+    unsigned long long int sibl;
+    unsigned long long int freq;
+    unsigned long long int anct;
+    int itmset;
+    int item;
 
-//
-// ─── Public API ───────────────────────────────────────────────────────────────
-//
+    Arc(unsigned int _itm, int _itmset, unsigned long long int _anc) {
+        chld  = 0;
+        sibl  = 0;
+        freq  = 0;
+        itmset = _itmset;
+        anct   = _anc;
+        item   = _itm;
+    }
 
-void Build_MDD(std::vector<int>& items,
-               std::vector<int>& items_lim);
-
-//
-// ─── Internal Helpers ─────────────────────────────────────────────────────────
-//
-
-int Add_arc(int item,
-            std::uint64_t last_arc,
-            int& itmset,
-            std::unordered_map<int, std::uint64_t>& ancest_map);
-
-void Add_vec(std::vector<int>& items_lim,
-             std::unordered_map<int, std::uint64_t>& ancest_map,
-             std::uint64_t last_arc,
-             int itmset);
-
-//
-// ─── Struct Definitions ───────────────────────────────────────────────────────
-//
-
-struct Arc {
-    int                item;
-    int                itmset;
-    std::uint64_t      anct;
-    std::uint64_t      chld;
-    std::uint64_t      sibl;
-    unsigned long long freq;
-
-    Arc(int _item, int _itmset, std::uint64_t _anct)
-      : item(_item), itmset(_itmset), anct(_anct),
-        chld(0), sibl(0), freq(0u) {}
-};
-
-struct VArc {
-    std::vector<int>            seq;
-    std::uint64_t               sibl;
-    unsigned long long          freq;
-
-    explicit VArc(std::vector<int>& items, std::uint64_t _sibl)
-      : seq(), sibl(_sibl), freq(0u)
-    {
-        seq.swap(items);
+    Arc() {
+        chld  = 0;
+        sibl  = 0;
+        freq  = 0;
+        anct  = 0;
+        itmset = 0;
+        item  = 0;
     }
 };
 
-struct CArc {
-    std::vector<std::uint64_t>  ancest;
-    std::vector<int>            seq;
-    unsigned long long          freq;
+class VArc {
+public:
+    unsigned long long int sibl;
+    vector<int> seq;
 
-    explicit CArc(std::vector<std::uint64_t>& _anc,
-                  std::vector<int>& items)
-      : ancest(), seq(), freq(0u)
-    {
+    VArc(vector<int>& items, unsigned long long int _sib) {
+        sibl = _sib;
+        seq.swap(items);
+    }
+
+    VArc() {
+        sibl = 0;
+    }
+};
+
+class CArc {
+public:
+    vector<int> seq;
+    vector<unsigned long long int> ancest;
+
+    CArc(vector<unsigned long long int>& _anc, vector<int>& items) {
         ancest.swap(_anc);
         seq.swap(items);
     }
+
+    CArc() = default;
 };
 
-} // namespace largehm
+extern vector<Arc>  Tree;
+extern vector<VArc> VTree;
+extern vector<CArc> CTree;
 
-#endif // LARGEHM_BUILD_MDD_HPP
+} // namespace largehm

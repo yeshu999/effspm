@@ -6,24 +6,26 @@
 #include "build_mdd.hpp"
 
 namespace largehm {
-using namespace std;
 
-  extern std::vector<std::vector<int>> collected;
+using std::vector;
+using std::string;
 
-  // Helpers to clear and fetch collected patterns from Python:
-  inline void ClearCollected() {
-    collected.clear();
-  }
-  inline const std::vector<std::vector<int>>& GetCollected() {
-    return collected;
-  }
+// time helper
+float give_time(clock_t kk);
 
-  // A small timer helper:
-  inline float give_time(clock_t kk) {
-    float ll = ((float)kk) / CLOCKS_PER_SEC;
-    return ll;
-  }
-bool check_parent(unsigned long long int cur_anct, unsigned long long int str_pnt, unsigned long long int start, vector<unsigned long long int>& strpnt_vec);
+// ancestor-check helper
+bool check_parent(unsigned long long int cur_anct,
+                  unsigned long long int str_pnt,
+                  unsigned long long int start,
+                  vector<unsigned long long int>& strpnt_vec);
 
+// pattern collection for Python wrapper
+extern std::vector<std::vector<int>> collectedPatterns;
 
-}
+// clear collected patterns between runs
+void ClearCollected();
+
+// get collected patterns after mining
+const std::vector<std::vector<int>>& GetCollected();
+
+} // namespace largehm

@@ -50,10 +50,11 @@ bool Load_instance(string& items_file, double thresh)
         return false;
     else
         theta = (thresh < 1.0) ? ceil(thresh * N) : thresh;
-
-    cout << "\nMDD Database built in " << give_time(clock() - kk) << " seconds\n\n";
-    cout << "Found " << N << " sequence, with max line len " << M
-         << ", and " << L << " items, and " << E << " enteries\n";
+    if (b_disp)
+        cout << "\nMDD Database built in " << give_time(clock() - kk) << " seconds\n\n";
+    if (b_disp)
+        cout << "Found " << N << " sequence, with max line len " << M
+             << ", and " << L << " items, and " << E << " enteries\n";
 
     // ───────────────────────────────────────────────────────────
     // DEBUG snapshot of seeds right after loading
