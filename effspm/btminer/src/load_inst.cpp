@@ -31,7 +31,7 @@ map<int, string>  item_map_rev;
 
 std::vector<int>  freq;
 std::vector<int>  item_dic;
-
+std::vector<std::vector<int>> items; 
 // ✅ REAL DEFINITION lives here:
 std::vector<Pattern> DFS;
 
@@ -103,6 +103,15 @@ bool Load_instance(string &items_file, double thresh) {
 // preprocessing pass
 // ---------------------------------------------------------------------
 bool Preprocess(string &inst, double thresh) {
+    N = 0;
+    L = 0;
+    freq.clear();
+    item_dic.clear();
+    item_map.clear();
+    item_map_rev.clear();
+    // (E is usually for entries during Build_MDD, so we can leave it
+    //  for the load phase; it’s already reset in the binding)
+
     ifstream file(inst);
 
     if (file.good()) {
